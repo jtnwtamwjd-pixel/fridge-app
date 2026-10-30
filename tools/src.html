@@ -375,9 +375,10 @@ function renderRecipes(){
   el.innerHTML=`<button class="btn block" id="addr" style="margin-bottom:10px">＋ レシピを追加（手入力・SNS投稿の貼り付け）</button>
     <input id="rq" type="search" placeholder="料理名・食材で検索（例：豚こま）" value="${esc(RQ)}">
     <div class="filters" style="margin-top:8px">${types.map(t=>`<button class="chip ${RT===t?'on':''}" data-t="${t}">${lab[t]}</button>`).join('')}</div>
-    <p class="muted" style="margin:4px 2px 8px">${list.length}品</p>
+    <div class="row" style="margin:4px 2px 8px"><span class="muted grow">${list.length}品</span>${RT==='mine'&&(S.my||[]).length?'<button class="chip" id="shareall">まとめて共有</button>':''}</div>
     <div class="rlist">${list.map(x=>dishHTML(x.r,x.m,(x.r.mine?'マイレシピ・':'')+(x.m.missing?`足りない${x.m.missing}品`:'今作れる')+'・'+TYPE_LABEL[x.r.type])).join('')||`<div class="empty">${RT==='mine'?'まだマイレシピはありません。<br>上のボタンから、自作のレシピやSNSで見たレシピを追加できます。':'見つかりませんでした'}</div>`}</div>`;
   $('#addr').onclick=()=>openRecipeEditor();
+  const sa=$('#shareall'); if(sa) sa.onclick=()=>shareRecipes(S.my);
   const rq=$('#rq'); rq.oninput=()=>{RQ=rq.value;const p=rq.selectionStart;renderRecipes();const n=$('#rq');n.focus();n.setSelectionRange(p,p)};
   el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{RT=b.dataset.t;renderRecipes()});
   el.querySelectorAll('[data-r]').forEach(e=>e.onclick=()=>openRecipe(e.dataset.r));
@@ -563,9 +564,9 @@ function openRecipe(rid){
     <h2>作り方 <span class="muted" style="font-weight:500">（タップで済みにできます）</span></h2>
     <ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
     <button class="btn block" id="made" style="margin-top:16px">🍳 作った！（使った食材を冷蔵庫から減らす）</button>
-    ${r.mine?`<div class="row" style="margin-top:8px"><button class="btn sub grow" id="redit">編集</button><button class="btn warn grow" id="rdel">削除</button></div>`:''}
+    ${r.mine?`<div class="row" style="margin-top:8px"><button class="btn sub grow" id="rshare">共有</button><button class="btn sub grow" id="redit">編集</button><button class="btn warn grow" id="rdel">削除</button></div>`:''}
   `,b=>{
-    if(r.mine){b.querySelector('#redit').onclick=()=>openRecipeEditor(r);
+    if(r.mine){b.querySelector('#redit').onclick=()=>openRecipeEditor(r); b.querySelector('#rshare').onclick=()=>shareRecipes([r]);
       b.querySelector('#rdel').onclick=()=>{if(!confirm(`「${r.name}」を削除しますか？`))return;S.my=S.my.filter(x=>x.id!==r.id);save();refreshRecipes();closeSheet();toast('削除しました');render()}}
     b.querySelectorAll('ol.steps li').forEach(l=>l.onclick=()=>l.classList.toggle('done'));
     b.querySelector('#made').onclick=()=>openMade(r,m);
@@ -665,7 +666,7 @@ function openRecipeEditor(r,fromPaste){
   openSheet(isNew?'レシピを追加':'レシピを編集',`
     ${isNew&&!fromPaste?`<div class="seg" id="emode"><button class="on" data-m="paste">投稿を貼り付け</button><button data-m="form">自分で書く</button></div>
     <div id="pastebox">
-      <label class="f">InstagramやTikTok、YouTube、Xなどの投稿文（キャプション・概要欄）をそのまま貼り付け</label>
+      <label class="f">InstagramやTikTok、YouTube、Xなどの投稿文（キャプション・概要欄）をそのまま貼り付け。送られてきた共有リンクもここに貼れます。</label>
       <textarea id="pt" rows="9" placeholder="例）&#10;やみつき豚バラ大根&#10;【材料】2人分&#10;・豚バラ 200g&#10;・大根 1/3本&#10;A 醤油 大さじ2&#10;A みりん 大さじ2&#10;【作り方】&#10;①大根を切ってレンジで5分&#10;②豚バラを炒めて…"></textarea>
       <button class="btn block" id="pparse" style="margin-top:10px">読み取る</button>
       <p class="muted">動画そのものは読み込めないので、説明文に材料や作り方が書いてある投稿で使えます。読み取った内容は次の画面で直せます。</p>
@@ -689,7 +690,8 @@ function openRecipeEditor(r,fromPaste){
     let type=base.type||'main';
     b.querySelectorAll('#rt button').forEach(x=>x.onclick=()=>{type=x.dataset.t;b.querySelectorAll('#rt button').forEach(y=>y.classList.toggle('on',y===x))});
     b.querySelectorAll('#emode button').forEach(x=>x.onclick=()=>{b.querySelectorAll('#emode button').forEach(y=>y.classList.toggle('on',y===x));b.querySelector('#pastebox').hidden=x.dataset.m!=='paste';b.querySelector('#formbox').hidden=x.dataset.m==='paste'});
-    const pp=b.querySelector('#pparse'); if(pp) pp.onclick=()=>{const t=b.querySelector('#pt').value; if(!t.trim()){toast('投稿文を貼り付けてください');return}
+    const pp=b.querySelector('#pparse'); if(pp) pp.onclick=async()=>{const t=b.querySelector('#pt').value; if(!t.trim()){toast('投稿文を貼り付けてください');return}
+      if(/#r=[zj]/.test(t)){try{const l=await readShare(t);if(l&&l.length){openImport(l);return}}catch(e){} toast('共有リンクを読み込めませんでした');return}
       const r2=parseRecipeText(t); if(!r2.ings.length&&!r2.steps.length){toast('材料や作り方が見つかりませんでした');}
       openRecipeEditor(r2,true)};
     const ri=b.querySelector('#ri'),rim=b.querySelector('#rimatch');
@@ -709,6 +711,55 @@ function openRecipeEditor(r,fromPaste){
   });
 }
 
+// ---------- レシピの共有（データをリンクの # 以降に入れて送る。サーバーは使わない） ----------
+const b64u={enc:u8=>{let s='';for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode(...u8.subarray(i,i+8192));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')},
+  dec:s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');const b=atob(s+'==='.slice((s.length+3)%4));return Uint8Array.from(b,c=>c.charCodeAt(0))}};
+async function pipe(u8,stream){return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer())}
+const packRecipe=r=>({n:r.name,t:r.type,m:r.time,v:r.serv||'',i:r.ing.map(x=>[x[3]||x[0].replace(/^\?/,''),x[1]||'',x[2]?1:0]),s:r.seas,p:r.steps,u:r.src||''});
+function unpackRecipe(o){
+  const type=TYPE_LABEL[o.t]?o.t:'main';
+  return {id:'u_'+uid(),mine:true,name:String(o.n||'レシピ').slice(0,60),type,emoji:{main:'🍽️',side:'🥗',soup:'🥣',one:'🍚'}[type],time:+o.m||20,serv:String(o.v||''),
+    ing:(o.i||[]).map(([n,a,opt])=>{const x=ingFromLine(String(n)+' '+String(a||''));if(!x)return null;if(opt)x[2]=1;return x}).filter(Boolean),
+    seas:(o.s||[]).map(String),steps:(o.p||[]).map(String),src:/^https?:\/\//.test(o.u||'')?o.u:''};
+}
+async function shareURL(recipes){
+  const u8=new TextEncoder().encode(JSON.stringify(recipes.map(packRecipe)));
+  let code;
+  try{code='z'+b64u.enc(await pipe(u8,new CompressionStream('deflate-raw')))}catch(e){code='j'+b64u.enc(u8)}
+  return location.href.split('#')[0]+'#r='+code;
+}
+async function readShare(str){
+  const m=String(str).match(/#r=([zj])([A-Za-z0-9_-]+)/); if(!m) return null;
+  let u8=b64u.dec(m[2]); if(m[1]==='z') u8=await pipe(u8,new DecompressionStream('deflate-raw'));
+  const arr=JSON.parse(new TextDecoder().decode(u8)); return Array.isArray(arr)?arr.map(unpackRecipe):null;
+}
+async function shareRecipes(recipes){
+  const url=await shareURL(recipes);
+  const title=recipes.length===1?`レシピ「${recipes[0].name}」`:`マイレシピ ${recipes.length}品`;
+  if(navigator.share){try{await navigator.share({title,text:title+'（冷蔵庫ごはん）',url});return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{await navigator.clipboard.writeText(url);toast('共有リンクをコピーしました');return}catch(e){}
+  openSheet('共有リンク',`<p class="muted">このリンクをコピーして送ってください。</p><textarea rows="6" readonly>${esc(url)}</textarea>`,b=>{const t=b.querySelector('textarea');t.focus();t.select()});
+}
+function openImport(list){
+  const same=r=>(S.my||[]).some(x=>x.name===r.name&&x.steps.join()===r.steps.join());
+  openSheet('レシピを受け取る',`
+    <p class="muted">送られてきたレシピです。追加するものにチェックを入れてください。</p>
+    ${list.map((r,i)=>`<label class="check"><input type="checkbox" data-i="${i}" ${same(r)?'':'checked'}><span>${r.emoji} ${esc(r.name)} <span class="muted">${TYPE_LABEL[r.type]}・材料${r.ing.length}品${same(r)?'・登録済み':''}</span></span></label>`).join('')}
+    <button class="btn block" id="imok" style="margin-top:16px">マイレシピに追加</button>`,b=>{
+    b.querySelector('#imok').onclick=()=>{
+      const add=[...b.querySelectorAll('input:checked')].map(x=>list[+x.dataset.i]);
+      S.my=[...add,...(S.my||[])]; save(); refreshRecipes(); closeSheet();
+      toast(add.length?`${add.length}品をマイレシピに追加しました`:'追加しませんでした'); RT='mine'; TAB='recipes'; render();
+    };
+  });
+}
+async function checkShareHash(){
+  if(!location.hash.startsWith('#r=')) return;
+  const h=location.hash; history.replaceState(null,'',location.href.split('#')[0]);
+  try{const list=await readShare(h); if(list&&list.length) openImport(list); else toast('レシピを読み込めませんでした')}catch(e){toast('レシピを読み込めませんでした')}
+}
+window.addEventListener('hashchange',checkShareHash);
+
 // お試しデータ
 function loadDemo(){
   const t=today();
@@ -720,10 +771,10 @@ function loadDemo(){
 // ---------- boot ----------
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;if(!$('#sheet').hidden)closeSheet();render();scrollTo(0,0)});
 $('#fab').onclick=()=>openAdd();
-render();
+render(); checkShareHash();
 // 日付が変わったら描き直す
 let lastDay=today(); setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&today()!==lastDay){lastDay=today();render()}});
-window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL};
+window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare};
 </script>
 </body></html>
