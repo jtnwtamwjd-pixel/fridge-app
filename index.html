@@ -3,131 +3,132 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <title>冷蔵庫ごはん</title>
-<meta name="theme-color" content="#2f7d5b">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<meta name="theme-color" content="#ffffff">
 <style>
-/* Layout: header with today's date, one scrolling panel per tab, bottom tab bar. Bottom sheets for add / recipe / item actions. */
+/* Simple layout: plain header, one list per tab, bottom tab bar. Sheets open full height from the top so the close button never hides under the keyboard. */
 :root{
-  --bg:#f6f3ec; --card:#fffdf8; --ink:#2b2a26; --muted:#7a766b; --line:#e6e0d2;
-  --green:#2f7d5b; --green-2:#e3f1e9; --red:#d2473a; --red-2:#fbe5e1; --orange:#e08a1e; --orange-2:#fcefd9;
-  --yellow:#c9a400; --blue:#3a76b5; --blue-2:#e2eef9; --shadow:0 2px 10px rgba(60,50,20,.08);
-  --font:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  --bg:#ffffff; --soft:#f4f5f3; --ink:#1f2321; --muted:#7b817d; --line:#e7e9e6;
+  --accent:#2f7d5b; --accent-2:#e9f3ee; --red:#d0453a; --red-2:#fcecea; --orange:#c7761a; --orange-2:#fdf3e6; --blue:#3a76b5;
+  --font:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#1a1c1a; --card:#242724; --ink:#ecebe5; --muted:#a3a197; --line:#363a35;
-  --green:#5fbf8f; --green-2:#203a2d; --red:#ff7b6c; --red-2:#3d2422; --orange:#f2a640; --orange-2:#3b2e1a;
-  --blue:#7fb2e8; --blue-2:#1f2d3c; --shadow:0 2px 10px rgba(0,0,0,.3); color-scheme:dark;}}
+  --bg:#151716; --soft:#1f2220; --ink:#ecedeb; --muted:#9aa09c; --line:#2c302d;
+  --accent:#62c191; --accent-2:#1c2e25; --red:#ff7d70; --red-2:#341f1d; --orange:#f0a64a; --orange-2:#33281a; --blue:#83b5ea; color-scheme:dark;}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font)}
 [hidden]{display:none!important}
 button{font:inherit;color:inherit;cursor:pointer}
-input,select,textarea{font:inherit;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;font-size:16px}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green)}
-header{position:sticky;top:0;z-index:5;background:var(--green);color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 16px 12px}
-header h1{margin:0;font-size:20px;font-weight:900;letter-spacing:.04em}
-header .sub{font-size:12px;opacity:.9;margin-top:2px}
-main{padding:14px 16px calc(96px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto}
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-nav.tabs button{flex:1;border:0;background:none;padding:8px 0 10px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
-nav.tabs button .i{font-size:22px;line-height:1}
-nav.tabs button.on{color:var(--green);font-weight:900}
-.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
-h2{font-size:16px;margin:18px 2px 8px;font-weight:900}
-h2:first-child{margin-top:4px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%;font-size:16px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top) + 12px) 16px 10px}
+header h1{margin:0;font-size:18px;font-weight:700}
+header .sub{font-size:12px;color:var(--muted);margin-top:2px}
+main{padding:12px 16px calc(90px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;border:0;background:none;padding:12px 0 14px;font-size:13px;color:var(--muted)}
+nav.tabs button .i{display:none}
+nav.tabs button.on{color:var(--accent);font-weight:700;box-shadow:inset 0 2px 0 var(--accent)}
+.card{border:1px solid var(--line);border-radius:12px;padding:4px 14px;margin-bottom:12px}
+h2{font-size:14px;color:var(--muted);margin:20px 0 8px;font-weight:600}
+h2:first-child{margin-top:6px}
 .muted{color:var(--muted);font-size:13px}
-.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:700;background:var(--green);color:#fff;font-size:15px}
-.btn.sub{background:var(--green-2);color:var(--green)}
-.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
-.btn.warn{background:var(--red-2);color:var(--red)}
+.btn{border:0;border-radius:10px;padding:12px 16px;font-weight:600;background:var(--accent);color:#fff;font-size:15px;min-height:46px}
+.btn.sub{background:var(--soft);color:var(--ink)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.warn{background:transparent;border:1px solid var(--line);color:var(--red)}
 .btn.block{width:100%}
 .row{display:flex;gap:8px;align-items:center}
 .row>*{min-width:0}
 .grow{flex:1}
-.fab{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:7;width:58px;height:58px;border-radius:50%;border:0;background:var(--green);color:#fff;font-size:30px;box-shadow:0 4px 14px rgba(47,125,91,.45)}
-/* fridge list */
-.alert{border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:14px;line-height:1.5}
+.fab{position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));z-index:7;height:48px;padding:0 18px;border-radius:24px;border:0;background:var(--accent);color:#fff;font-size:15px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.alert{border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px;line-height:1.55}
 .alert.red{background:var(--red-2);color:var(--red)}
 .alert.orange{background:var(--orange-2);color:var(--orange)}
-.filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
-.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px}
-.chip.on{background:var(--green);border-color:var(--green);color:#fff}
-.item{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.chip{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--muted)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .item:last-child{border-bottom:0}
-.item .em{font-size:26px;width:36px;text-align:center;flex:none}
-.item .nm{font-weight:700;font-size:15px}
+.item .em{font-size:22px;width:28px;text-align:center;flex:none}
+.item .nm{font-size:15px}
 .item .meta{font-size:12px;color:var(--muted);margin-top:2px}
-.badge{flex:none;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:900;white-space:nowrap}
-.b-exp{background:var(--red);color:#fff}
-.b-0,.b-1{background:var(--red-2);color:var(--red)}
-.b-2,.b-3{background:var(--orange-2);color:var(--orange)}
-.b-ok{background:var(--green-2);color:var(--green)}
-.b-frz{background:var(--blue-2);color:var(--blue)}
-.st{display:inline-block;font-size:11px;border-radius:6px;padding:1px 6px;margin-right:4px;background:var(--bg);color:var(--muted)}
-.empty{text-align:center;padding:30px 10px;color:var(--muted)}
-.empty .big{font-size:48px}
-/* menu */
-.dish{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.badge{flex:none;font-size:13px;font-weight:600;white-space:nowrap;color:var(--muted)}
+.b-exp,.b-0,.b-1{color:var(--red)}
+.b-2,.b-3{color:var(--orange)}
+.b-frz{color:var(--blue)}
+.st{font-size:12px;color:var(--muted);margin-right:6px}
+.empty{text-align:center;padding:36px 10px;color:var(--muted);line-height:1.7}
+.empty .big{font-size:40px}
+.dish{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .dish:last-child{border-bottom:0}
-.dish .em{font-size:34px;width:46px;height:46px;border-radius:12px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:none}
-.dish .kind{font-size:11px;color:var(--green);font-weight:900}
-.dish .nm{font-weight:900;font-size:16px;margin:1px 0 3px}
-.dish .why{font-size:12px;color:var(--muted);line-height:1.5}
-.dish .go{margin-left:auto;color:var(--muted);font-size:20px;align-self:center}
-.tag{display:inline-block;font-size:11px;border-radius:6px;padding:1px 6px;margin:2px 3px 0 0}
-.tag.u{background:var(--red-2);color:var(--red)}
-.tag.h{background:var(--green-2);color:var(--green)}
-.tag.m{background:var(--orange-2);color:var(--orange)}
-.cover{font-size:13px;margin-top:8px;line-height:1.6}
-.rlist .dish{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px;margin-bottom:8px;border:0}
+.dish .em{font-size:26px;width:32px;text-align:center;flex:none}
+.dish .kind{font-size:12px;color:var(--muted)}
+.dish .nm{font-weight:600;font-size:15px;margin:1px 0 2px}
+.dish .why{font-size:12px;color:var(--muted);line-height:1.6}
+.dish .go{margin-left:auto;color:var(--muted);font-size:18px}
+.tag{display:inline;font-size:12px;margin-right:6px}
+.tag.u{color:var(--red)}
+.tag.h{color:var(--muted)}
+.tag.m{color:var(--orange)}
+.cover{font-size:13px;padding:10px 0;line-height:1.6;border-top:1px solid var(--line)}
+.rlist{border:1px solid var(--line);border-radius:12px;padding:0 14px}
 /* sheet */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;opacity:0;transition:opacity .2s}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:20;opacity:0;transition:opacity .2s}
 .scrim.show{opacity:1}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s ease;max-width:720px;margin:0 auto}
+.sheet{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 10px);bottom:0;z-index:21;background:var(--bg);border-radius:16px 16px 0 0;display:flex;flex-direction:column;transform:translateY(105%);transition:transform .25s ease;max-width:640px;margin:0 auto}
 .sheet.show{transform:none}
-.sheet .sh{display:flex;align-items:center;gap:8px;padding:12px 8px 8px 16px;border-bottom:1px solid var(--line)}
-.sheet .sh h3{margin:0;font-size:17px;font-weight:900;flex:1}
-.sheet .x{border:0;background:var(--bg);width:44px;height:44px;border-radius:50%;font-size:20px;flex:none}
-.sheet .sb{overflow-y:auto;padding:14px 16px calc(20px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
-label.f{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px;font-weight:700}
-.seg{display:flex;background:var(--bg);border-radius:10px;padding:3px}
-.seg button{flex:1;border:0;background:none;border-radius:8px;padding:8px 0;font-size:14px}
-.seg button.on{background:var(--card);box-shadow:var(--shadow);font-weight:900;color:var(--green)}
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:8px auto 0}
+.sheet .sh{display:flex;align-items:center;gap:8px;padding:4px 6px 6px 16px;border-bottom:1px solid var(--line);touch-action:none}
+.sheet .sh h3{margin:0;font-size:17px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet .x{border:0;background:var(--soft);height:44px;min-width:88px;padding:0 14px;border-radius:22px;font-size:15px;font-weight:600;flex:none}
+.sheet .sb{flex:1;overflow-y:auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.sheet .closeb{margin-top:20px}
+label.f{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px}
+.seg{display:flex;background:var(--soft);border-radius:10px;padding:3px}
+.seg button{flex:1;border:0;background:none;border-radius:8px;padding:9px 0;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.sugg button{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:5px 10px;font-size:13px}
-.estim{background:var(--green-2);color:var(--green);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:12px;line-height:1.5}
-.quick h4{font-size:12px;color:var(--muted);margin:14px 0 6px}
-.quick .sugg button.added{background:var(--green);color:#fff;border-color:var(--green)}
+.sugg button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13px}
+.estim{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:14px;line-height:1.55}
+.quick details{border-top:1px solid var(--line);margin-top:6px}
+.quick summary{padding:13px 0;font-size:14px;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+.quick summary::after{content:'＋';color:var(--muted)}
+.quick details[open] summary::after{content:'－'}
+.quick summary::-webkit-details-marker{display:none}
+.quick .sugg{margin:0 0 12px}
+.quick .sugg button.added{background:var(--accent);color:#fff;border-color:var(--accent)}
 .ings{list-style:none;padding:0;margin:0}
-.ings li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ings li{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
 .ings li .q{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
-.mk{width:22px;text-align:center;flex:none;font-weight:900}
-.mk.ok{color:var(--green)} .mk.ng{color:var(--orange)} .mk.op{color:var(--muted)}
-.seas{font-size:13px;line-height:1.8;color:var(--muted)}
+.mk{width:18px;text-align:center;flex:none;font-weight:700}
+.mk.ok{color:var(--accent)} .mk.ng{color:var(--orange)} .mk.op{color:var(--muted)}
+.seas{list-style:none;padding:0;margin:0;font-size:14px}
+.seas li{padding:6px 0;color:var(--muted)}
+.seas li.has{color:var(--ink)}
 ol.steps{padding:0;margin:0;list-style:none;counter-reset:s}
-ol.steps li{counter-increment:s;position:relative;padding:8px 0 8px 36px;line-height:1.65;font-size:15px}
-ol.steps li::before{content:counter(s);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
-ol.steps li.done{opacity:.4;text-decoration:line-through}
-.rhead{display:flex;gap:12px;align-items:center;margin-bottom:6px}
-.rhead .em{font-size:44px}
-.check{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.check input{width:22px;height:22px;flex:none;accent-color:var(--green)}
-.toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+ol.steps li{counter-increment:s;position:relative;padding:8px 0 8px 32px;line-height:1.7;font-size:15px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:10px;width:22px;height:22px;border-radius:50%;border:1px solid var(--accent);color:var(--accent);font-weight:600;font-size:12px;display:flex;align-items:center;justify-content:center}
+ol.steps li.done{opacity:.35;text-decoration:line-through}
+.rhead{display:flex;gap:12px;align-items:center;margin-bottom:4px}
+.rhead .em{font-size:36px}
+.check{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.check input{width:22px;height:22px;flex:none;accent-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(130px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
-.hist{font-size:13px;padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:8px}
+.hist{font-size:14px;padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
 .hist:last-child{border-bottom:0}
 </style></head>
 <body>
-<header><h1>🧊 冷蔵庫ごはん</h1><div class="sub" id="hdrSub"></div></header>
+<header><h1>冷蔵庫ごはん</h1><div class="sub" id="hdrSub"></div></header>
 <main>
   <section id="tab-fridge"></section>
   <section id="tab-menu" hidden></section>
   <section id="tab-recipes" hidden></section>
   <section id="tab-more" hidden></section>
 </main>
-<button class="fab" id="fab" aria-label="食材を追加">＋</button>
+<button class="fab" id="fab" aria-label="食材を追加">＋ 追加</button>
 <nav class="tabs">
   <button data-tab="fridge" class="on"><span class="i">🧊</span>冷蔵庫</button>
   <button data-tab="menu"><span class="i">🍽️</span>今日の献立</button>
@@ -135,7 +136,7 @@ ol.steps li.done{opacity:.4;text-decoration:line-through}
   <button data-tab="more"><span class="i">⚙️</span>その他</button>
 </nav>
 <div class="scrim" id="scrim" hidden></div>
-<div class="sheet" id="sheet" hidden><div class="sh"><h3 id="shTitle"></h3><button class="x" id="shX" aria-label="閉じる">✕</button></div><div class="sb" id="shBody"></div></div>
+<div class="sheet" id="sheet" hidden><div class="grab"></div><div class="sh" id="shHead"><h3 id="shTitle"></h3><button class="x" id="shX">✕ 閉じる</button></div><div class="sb" id="shBody"></div></div>
 <div class="toast" id="toast"></div>
 <script>
 // 食材DB: [名前, 分類, 絵文字, 冷蔵日数, 冷凍日数, 常温日数, 既定の保存場所, 別名…]
@@ -210,9 +211,40 @@ const ING_RAW = [
  ['りんご','果物','🍎',30,null,7,'冷蔵','リンゴ','林檎'],
  ['バナナ','果物','🍌',null,30,5,'常温'],
  ['レモン','果物','🍋',14,30,null,'冷蔵'],
+ // 調味料（日数は開封してからの目安）
+ ['醤油','調味料','🍶',60,null,30,'冷蔵','しょうゆ','しょう油','濃口醤油','薄口醤油'],
+ ['みりん','調味料','🍶',90,null,90,'常温','本みりん','みりん風調味料'],
+ ['料理酒','調味料','🍶',90,null,90,'常温','酒','日本酒'],
+ ['酢','調味料','🍶',180,null,180,'常温','米酢','穀物酢','黒酢'],
+ ['マヨネーズ','調味料','🥚',30,null,null,'冷蔵','マヨ'],
+ ['ケチャップ','調味料','🍅',30,null,null,'冷蔵','トマトケチャップ'],
+ ['ソース','調味料','🫙',60,null,null,'冷蔵','中濃ソース','ウスターソース','とんかつソース','お好みソース'],
+ ['味噌','調味料','🫙',90,90,null,'冷蔵','みそ','ミソ','合わせ味噌','白味噌','赤味噌'],
+ ['めんつゆ','調味料','🍶',30,null,null,'冷蔵','白だし'],
+ ['ポン酢','調味料','🍋',30,null,null,'冷蔵','ぽん酢'],
+ ['ドレッシング','調味料','🥗',30,null,null,'冷蔵','ごまドレッシング','和風ドレッシング'],
+ ['焼肉のたれ','調味料','🫙',30,null,null,'冷蔵','焼き肉のたれ','焼肉のタレ'],
+ ['オイスターソース','調味料','🫙',30,null,null,'冷蔵','オイスター'],
+ ['豆板醤','調味料','🌶️',90,null,null,'冷蔵','トウバンジャン'],
+ ['甜麺醤','調味料','🫙',60,null,null,'冷蔵','テンメンジャン'],
+ ['コチュジャン','調味料','🌶️',90,null,null,'冷蔵'],
+ ['チューブにんにく','調味料','🧄',30,null,null,'冷蔵','おろしにんにく','にんにくチューブ'],
+ ['チューブ生姜','調味料','🫚',30,null,null,'冷蔵','おろし生姜','生姜チューブ','しょうがチューブ'],
+ ['わさび','調味料','🟢',30,null,null,'冷蔵','チューブわさび','練りわさび'],
+ ['からし','調味料','🟡',30,null,null,'冷蔵','練りからし','マスタード'],
+ ['塩昆布','調味料','🟫',60,null,null,'冷蔵'],
+ ['サラダ油','調味料','🫗',null,null,60,'常温','キャノーラ油'],
+ ['ごま油','調味料','🫗',null,null,60,'常温','胡麻油'],
+ ['オリーブオイル','調味料','🫒',null,null,60,'常温','オリーブ油'],
+ ['鶏がらスープの素','調味料','🫙',null,null,90,'常温','鶏ガラスープ','ガラスープ'],
+ ['コンソメ','調味料','🫙',null,null,180,'常温'],
+ ['カレールウ','調味料','🍛',null,null,90,'常温','カレールー'],
+ ['シチュールウ','調味料','🍲',null,null,90,'常温','シチュールー'],
+ ['ジャム','調味料','🍓',14,null,null,'冷蔵','いちごジャム'],
+ ['はちみつ','調味料','🍯',null,null,365,'常温','蜂蜜'],
 ];
-const CAT_DAYS = {野菜:5,きのこ:7,肉:2,魚:2,加工:7,卵乳:7,豆腐:4,主食:3,果物:7,その他:7};
-const CATS = ['野菜','きのこ','肉','魚','卵乳','豆腐','加工','主食','果物','その他'];
+const CAT_DAYS = {野菜:5,きのこ:7,肉:2,魚:2,加工:7,卵乳:7,豆腐:4,主食:3,果物:7,調味料:30,その他:7};
+const CATS = ['野菜','きのこ','肉','魚','卵乳','豆腐','加工','主食','果物','調味料','その他'];
 
 // レシピ（2人分）
 // ing: [食材名（|で代替可）, 分量, 任意なら1]
@@ -523,6 +555,13 @@ for(const [name,cat,emoji,fr,fz,rm,def,...al] of ING_RAW){
   ALIAS[name]=name; for(const a of al) ALIAS[a]=name;
 }
 const ALIAS_KEYS=Object.keys(ALIAS).sort((a,b)=>b.length-a.length);
+// 調味料はレシピの「調味料など」の行と名前で照合する（1文字の名前は行頭のみ）
+const SEAS_TERMS=ALIAS_KEYS.filter(k=>ING[ALIAS[k]].cat==='調味料');
+function seasKeys(line){
+  const hit=SEAS_TERMS.filter(t=>t.length>=2?line.includes(t):line.startsWith(t));
+  return [...new Set(hit.filter(t=>!hit.some(o=>o!==t&&o.includes(t))).map(t=>ALIAS[t]))];
+}
+for(const r of RECIPES) r.seasK=r.seas.map(seasKeys);
 const norm=s=>s.normalize('NFKC').trim();
 function findIng(raw){
   const s=norm(raw); if(!s) return null;
@@ -583,7 +622,8 @@ function matchRecipe(r,byKey){
     if(!hit&&!opt) missing++;
     rows.push({spec,amt,opt:!!opt,hit});
   }
-  return {rows,missing,used};
+  const seas=r.seasK.map(ks=>{let hit=null;for(const k of ks)for(const it of (byKey[k]||[]))if(!used.has(it.id)&&(!hit||urgency(it)>urgency(hit)))hit=it;if(hit)used.add(hit.id);return hit});
+  return {rows,missing,used,seas};
 }
 // 乱数（シード付き）で「別の案」を出す
 function rng(seed){let x=seed*2654435761%4294967296||1;return()=>(x=(x*1664525+1013904223)%4294967296)/4294967296}
@@ -596,6 +636,7 @@ function scoreRecipe(r,m,usedSoFar,noise){
   let s=0;
   for(const row of m.rows){ if(!row.hit) continue;
     let u=urgency(row.hit); if(usedSoFar.has(row.hit.id)) u*=.15; s+=u*(row.opt?.6:1); }
+  for(const it of m.seas){ if(!it) continue; let u=urgency(it); if(usedSoFar.has(it.id)) u*=.15; s+=u*.5 }
   return s - m.missing*3 - recentPenalty(r) + noise;
 }
 const TYPE_LABEL={main:'主菜',side:'副菜',soup:'汁物',one:'丼・麺・ご飯'};
@@ -610,7 +651,7 @@ function buildMenu(seed){
       if(needUse&&!m.rows.some(x=>x.hit&&!x.opt)) continue;
       if(picks.some(p=>p.r.id===r.id)) continue;
       const s=scoreRecipe(r,m,usedSoFar,noise[r.id]); if(s>bs){bs=s;best=r} }
-    if(best){ picks.push({r:best,m:M[best.id],slot:best.type}); for(const x of M[best.id].rows) if(x.hit) usedSoFar.add(x.hit.id) }
+    if(best){ picks.push({r:best,m:M[best.id],slot:best.type}); for(const x of M[best.id].rows) if(x.hit) usedSoFar.add(x.hit.id); for(const it of M[best.id].seas) if(it) usedSoFar.add(it.id) }
     return best;
   };
   const main=pick(['main','one'],true);
@@ -657,14 +698,15 @@ function renderFridge(){
   let h='';
   if(expired.length) h+=`<div class="alert red">⚠️ 期限の目安を過ぎた食材：${expired.map(i=>esc(i.name)).join('、')}<br><small>においや見た目を確認して、大丈夫なら今日使いましょう。</small></div>`;
   if(soon.length) h+=`<div class="alert orange">⏰ 今日・明日中に使いたい：${soon.map(i=>esc(i.name)).join('、')}　<a href="#" id="toMenu" style="color:inherit;font-weight:900">献立を見る ›</a></div>`;
-  const places=['all','冷蔵','冷凍','常温'];
-  h+=`<div class="filters">${places.map(p=>`<button class="chip ${FILTER===p?'on':''}" data-f="${p}">${p==='all'?'すべて':p}（${p==='all'?items.length:items.filter(i=>i.storage===p).length}）</button>`).join('')}</div>`;
-  const list=items.filter(i=>FILTER==='all'||i.storage===FILTER);
-  h+=`<div class="card" style="padding:4px 12px">`+(list.length?list.map(it=>`
+  const places=['all','冷蔵','冷凍','常温','調味料'];
+  const inF=(i,p)=>p==='all'||(p==='調味料'?i.cat==='調味料':i.storage===p&&i.cat!=='調味料');
+  h+=`<div class="filters">${places.map(p=>`<button class="chip ${FILTER===p?'on':''}" data-f="${p}">${p==='all'?'すべて':p} ${items.filter(i=>inF(i,p)).length}</button>`).join('')}</div>`;
+  const list=items.filter(i=>inF(i,FILTER));
+  h+=`<div class="card">`+(list.length?list.map(it=>`
     <div class="item" data-id="${it.id}">
       <div class="em">${it.emoji}</div>
       <div class="grow"><div class="nm">${esc(it.name)}${it.amt?` <span class="muted">${esc(it.amt)}</span>`:''}</div>
-      <div class="meta"><span class="st">${it.storage}</span>${fmtD(it.exp)}まで${it.auto?'（目安）':''}</div></div>
+      <div class="meta"><span class="st">${it.cat==='調味料'?'調味料・':''}${it.storage}</span>${fmtD(it.exp)}まで${it.auto?'（目安）':''}</div></div>
       ${badge(it)}
     </div>`).join(''):`<div class="empty">この場所の食材はありません</div>`)+`</div>`;
   el.innerHTML=h;
@@ -675,6 +717,7 @@ function renderFridge(){
 function whyTags(m){
   return m.rows.filter(x=>x.hit).map(x=>{const d=daysLeft(x.hit);const u=d<=2&&x.hit.storage!=='冷凍';
     return `<span class="tag ${u?'u':'h'}">${esc(x.hit.name)}${u?(d<0?' 期限切れ':d===0?' 今日まで':` あと${d}日`):''}</span>`}).join('')
+   + m.seas.filter(Boolean).map(it=>{const d=daysLeft(it);return d<=7?`<span class="tag ${d<=2?'u':'h'}">${esc(it.name)}${d<0?' 期限切れ':d===0?' 今日まで':` あと${d}日`}</span>`:''}).join('')
    + m.rows.filter(x=>!x.hit&&!x.opt).map(x=>`<span class="tag m">${esc(x.spec.split('|')[0])}が必要</span>`).join('');
 }
 function dishHTML(r,m,kind){
@@ -693,7 +736,7 @@ function renderMenu(){
     const covered=urgentAll.filter(it=>usedSoFar.has(it.id)), notc=urgentAll.filter(it=>!usedSoFar.has(it.id));
     if(urgentAll.length) h+=`<div class="cover">✅ 期限が近い ${urgentAll.length}品のうち <b>${covered.length}品</b> を使えます。`+
       (notc.length?`<br><span class="muted">残り：${notc.map(i=>esc(i.name)).join('、')}（冷凍するか、明日に回しましょう）</span>`:'')+`</div>`;
-    h+=`<div class="row" style="margin-top:12px"><button class="btn sub grow" id="reroll">🔄 別の組み合わせ</button>${S.seed?'<button class="btn ghost" id="reset">最初の案</button>':''}</div></div>`;
+    h+=`<div class="row" style="margin:4px 0 14px"><button class="btn sub grow" id="reroll">🔄 別の組み合わせ</button>${S.seed?'<button class="btn ghost" id="reset">最初の案</button>':''}</div></div>`;
   }else h+=`<div class="card empty">今ある食材だけで作れる料理が見つかりませんでした。<br>下の「あと少しで作れる」を見てみてください。</div>`;
   const pickIds=new Set(picks.map(p=>p.r.id));
   const can=ranked.filter(x=>!x.m.missing&&!pickIds.has(x.r.id)).slice(0,8);
@@ -729,7 +772,7 @@ function renderMore(){
   const el=$('#tab-more');
   const hist=[...S.hist].reverse().slice(0,20);
   el.innerHTML=`<h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=RECIPES.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
-  <h2>保管期限の目安について</h2><div class="card muted" style="line-height:1.7">買った日（開封した日）からの、家庭での一般的な目安です。パックに書かれた消費期限・賞味期限があればそちらを優先して、食材をタップして日付を直してください。冷凍すると期限の目安が延びます（食材をタップ →「冷凍する」）。</div>
+  <h2>保管期限の目安について</h2><div class="card muted" style="line-height:1.7;padding:12px 14px">買った日（開封した日）からの、家庭での一般的な目安です。パックに書かれた消費期限・賞味期限があればそちらを優先して、食材をタップして日付を直してください。冷凍すると期限の目安が延びます（食材をタップ →「冷凍する」）。</div>
   <h2>データ</h2><div class="card">
     <div class="row"><button class="btn sub grow" id="exp">バックアップを書き出す</button><button class="btn sub grow" id="imp">読み込む</button></div>
     <button class="btn warn block" id="clr" style="margin-top:10px">冷蔵庫を空にする</button>
@@ -745,19 +788,28 @@ function openSheet(title,html,onMount){
   clearTimeout(closeSheet.t); const sc=$('#scrim'),sh=$('#sheet'); sc.hidden=sh.hidden=false;
   requestAnimationFrame(()=>{sc.classList.add('show');sh.classList.add('show')});
   onMount&&onMount($('#shBody'));
+  const cb=document.createElement('button');cb.className='btn ghost block closeb';cb.textContent='閉じる';cb.onclick=closeSheet;$('#shBody').appendChild(cb);
 }
 function closeSheet(){
   const sc=$('#scrim'),sh=$('#sheet'); sc.classList.remove('show');sh.classList.remove('show');
   closeSheet.t=setTimeout(()=>{sc.hidden=sh.hidden=true},250);
 }
 $('#scrim').onclick=closeSheet; $('#shX').onclick=closeSheet;
+// 見出し部分を下にスワイプしても閉じる
+(()=>{const sh=$('#sheet');let y0=null,dy=0;
+  const start=e=>{if(e.target.closest('#shX'))return;y0=e.touches[0].clientY;dy=0;sh.style.transition='none'};
+  const move=e=>{if(y0==null)return;dy=Math.max(0,e.touches[0].clientY-y0);sh.style.transform=`translateY(${dy}px)`};
+  const end=()=>{if(y0==null)return;y0=null;sh.style.transition='';sh.style.transform='';if(dy>90)closeSheet()};
+  for(const el of [$('#shHead'),sh.querySelector('.grab')]){el.addEventListener('touchstart',start,{passive:true});el.addEventListener('touchmove',move,{passive:true});el.addEventListener('touchend',end)}
+})();
 
 // 食材追加
 const QUICK={野菜:['キャベツ','玉ねぎ','にんじん','じゃがいも','大根','白菜','ほうれん草','小松菜','もやし','長ねぎ','青ねぎ','トマト','きゅうり','なす','ピーマン','ブロッコリー','レタス','にら','ごぼう','かぼちゃ'],
   きのこ:['しめじ','えのき','しいたけ','まいたけ'],
   '肉・魚':['鶏もも肉','鶏むね肉','豚こま','豚バラ','豚ロース','牛こま','合いびき肉','豚ひき肉','鶏ひき肉','鮭','さば','ぶり','たら','えび'],
   '卵・乳・豆腐':['卵','牛乳','チーズ','バター','豆腐','油揚げ','厚揚げ','納豆'],
-  'その他':['ベーコン','ハム','ソーセージ','ちくわ','キムチ','うどん','中華麺','こんにゃく','しょうが']};
+  'その他':['ベーコン','ハム','ソーセージ','ちくわ','キムチ','うどん','中華麺','こんにゃく','しょうが'],
+  '調味料（開封した日から）':['マヨネーズ','ケチャップ','みりん','醤油','味噌','めんつゆ','ポン酢','ソース','ドレッシング','焼肉のたれ','オイスターソース','豆板醤','チューブにんにく','チューブ生姜','わさび','からし','料理酒','酢','ごま油','ジャム']};
 function openAdd(prefill){
   let storage=null, key=null, expTouched=false;
   openSheet('食材を追加',`
@@ -769,12 +821,12 @@ function openAdd(prefill){
       <div id="custom" hidden><label class="f">分類（リストにない食材）</label><select id="cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <label class="f">保存場所</label>
       <div class="seg" id="stg"><button data-s="冷蔵">冷蔵</button><button data-s="冷凍">冷凍</button><button data-s="常温">常温</button></div>
-      <div class="row"><div class="grow"><label class="f">買った日</label><input type="date" id="bought"></div>
+      <div class="row"><div class="grow"><label class="f">買った日／開封日</label><input type="date" id="bought"></div>
       <div class="grow"><label class="f">期限（目安）</label><input type="date" id="exp"></div></div>
       <label class="f">量・メモ（任意）</label><input id="amt" placeholder="例：300g、半分">
       <div class="estim" id="est">食材名を入れると期限の目安を自動で入れます。</div>
       <button class="btn block" id="add" style="margin-top:14px">追加する</button>
-      <div class="quick">${Object.entries(QUICK).map(([k,v])=>`<h4>${k}（タップですぐ追加）</h4><div class="sugg">${v.map(n=>`<button data-q="${n}">${ING[n].emoji} ${n}</button>`).join('')}</div>`).join('')}</div>
+      <h2>よく使う食材（タップですぐ追加）</h2><div class="quick">${Object.entries(QUICK).map(([k,v])=>`<details><summary>${k}</summary><div class="sugg">${v.map(n=>`<button data-q="${n}">${n}</button>`).join('')}</div></details>`).join('')}</div>
     </div>
     <div id="bulk" hidden>
       <label class="f">買ってきた食材を「、」や改行で区切って入力</label>
@@ -794,7 +846,8 @@ function openAdd(prefill){
       const c=key?ING[key].cat:cat.value; const d=estDays(key,c,storage);
       const bad=key&&ING[key].days[storage]==null;
       if(!expTouched) exp.value=addDays(bought.value||today(),d);
-      est.innerHTML=(key?`「${esc(key)}」として登録 ・ `:'リストにない食材 ・ ')+`${storage}で<b>約${d}日</b>（${fmtD(exp.value)}まで）`+
+      const isS=(key?ING[key].cat:c)==='調味料';
+      est.innerHTML=(key?`「${esc(key)}」として登録 ・ `:'リストにない食材 ・ ')+`${isS?'開封後、':''}${storage}で<b>約${d}日</b>（${fmtD(exp.value)}まで）`+
         (bad?`<br>⚠️ ${esc(key)}は${storage}保存に向きません`:'')+(expTouched?'<br>期限は手入力の日付を使います':'');
       // 候補
       const ac=b.querySelector('#ac');
@@ -828,7 +881,7 @@ function openAdd(prefill){
       for(const x of p) addItem({name:x.name,key:x.key,cat:x.cat,storage:x.storage,bought:bd,exp:addDays(bd,x.days),amt:x.amt});
       toast(`${p.length}品を追加しました`);closeSheet();render()};
     if(prefill){nm.value=prefill;}
-    recalc(); setTimeout(()=>nm.focus(),300);
+    recalc();
   });
 }
 function parseBulk(text){
@@ -890,7 +943,7 @@ function openRecipe(rid){
     <div class="rhead"><div class="em">${r.emoji}</div><div><div class="muted">${TYPE_LABEL[r.type]}・調理 約${r.time}分・2人分</div>
     <div style="font-size:13px;margin-top:4px">${m.missing?`<span class="tag m">あと${m.missing}品そろえば作れます</span>`:'<span class="tag h">冷蔵庫の食材で作れます</span>'}</div></div></div>
     <h2>材料</h2><ul class="ings">${li}</ul>
-    <h2>調味料など</h2><div class="seas">${r.seas.map(esc).join('<br>')}</div>
+    <h2>調味料など</h2><ul class="seas">${r.seas.map((l,i)=>{const it=m.seas[i];return it?`<li class="has"><span class="mk ok">✓</span> ${esc(l)} <span class="muted">${(d=>d<0?'期限切れ':d===0?'今日まで':'あと'+d+'日')(daysLeft(it))}</span></li>`:`<li>${esc(l)}</li>`}).join('')}</ul>
     <h2>作り方 <span class="muted" style="font-weight:500">（タップで済みにできます）</span></h2>
     <ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
     <button class="btn block" id="made" style="margin-top:16px">🍳 作った！（使った食材を冷蔵庫から減らす）</button>
@@ -900,10 +953,10 @@ function openRecipe(rid){
   });
 }
 function openMade(r,m){
-  const used=m.rows.filter(x=>x.hit);
+  const used=[...m.rows.filter(x=>x.hit),...m.seas.filter(Boolean).map(it=>({hit:it,seas:1}))];
   openSheet('使った食材',`
     <p class="muted">使い切った食材にチェックを入れてください。チェックしたものは冷蔵庫から消えます。まだ残っているものはチェックを外してください。</p>
-    ${used.map(x=>`<label class="check"><input type="checkbox" data-id="${x.hit.id}" checked><span>${x.hit.emoji} ${esc(x.hit.name)}${x.hit.amt?` <span class="muted">${esc(x.hit.amt)}</span>`:''}</span></label>`).join('')||'<p class="muted">冷蔵庫の食材は使っていません。</p>'}
+    ${used.map(x=>`<label class="check"><input type="checkbox" data-id="${x.hit.id}" ${x.seas?'':'checked'}><span>${x.hit.emoji} ${esc(x.hit.name)}${x.hit.amt?` <span class="muted">${esc(x.hit.amt)}</span>`:''}</span></label>`).join('')||'<p class="muted">冷蔵庫の食材は使っていません。</p>'}
     <button class="btn block" id="ok" style="margin-top:16px">記録する</button>`,b=>{
     b.querySelector('#ok').onclick=()=>{
       const ids=[...b.querySelectorAll('input:checked')].map(i=>i.dataset.id);
