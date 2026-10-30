@@ -561,7 +561,6 @@ function seasKeys(line){
   const hit=SEAS_TERMS.filter(t=>t.length>=2?line.includes(t):line.startsWith(t));
   return [...new Set(hit.filter(t=>!hit.some(o=>o!==t&&o.includes(t))).map(t=>ALIAS[t]))];
 }
-for(const r of RECIPES) r.seasK=r.seas.map(seasKeys);
 const norm=s=>s.normalize('NFKC').trim();
 function findIng(raw){
   const s=norm(raw); if(!s) return null;
@@ -581,9 +580,13 @@ function estDays(key,cat,storage){
 
 // ---------- state ----------
 const LS='fridge_app_v1';
-let S={items:[],hist:[],seed:0};
+let S={items:[],hist:[],seed:0,my:[]};
 try{const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.items)) S=Object.assign(S,j)}catch(e){}
 function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+// 標準レシピ＋マイレシピ
+let ALL=[];
+function refreshRecipes(){ALL=[...(S.my||[]),...RECIPES];for(const r of ALL) r.seasK=r.seas.map(seasKeys)}
+refreshRecipes();
 
 function daysLeft(it){return diffDays(today(),it.exp)}
 function itemOf(id){return S.items.find(i=>i.id===id)}
@@ -642,12 +645,12 @@ function scoreRecipe(r,m,usedSoFar,noise){
 const TYPE_LABEL={main:'主菜',side:'副菜',soup:'汁物',one:'丼・麺・ご飯'};
 function buildMenu(seed){
   const byKey=itemsByKey(); const rand=rng(seed+1);
-  const noise={}; for(const r of RECIPES) noise[r.id]=seed?rand()*1.6:0;
-  const M={}; for(const r of RECIPES) M[r.id]=matchRecipe(r,byKey);
+  const noise={}; for(const r of ALL) noise[r.id]=seed?rand()*1.6:0;
+  const M={}; for(const r of ALL) M[r.id]=matchRecipe(r,byKey);
   const usedSoFar=new Set(); const picks=[];
   const pick=(types,needUse)=>{
     let best=null,bs=-1e9;
-    for(const r of RECIPES){ if(!types.includes(r.type)) continue; const m=M[r.id]; if(m.missing) continue;
+    for(const r of ALL){ if(!types.includes(r.type)) continue; const m=M[r.id]; if(m.missing) continue;
       if(needUse&&!m.rows.some(x=>x.hit&&!x.opt)) continue;
       if(picks.some(p=>p.r.id===r.id)) continue;
       const s=scoreRecipe(r,m,usedSoFar,noise[r.id]); if(s>bs){bs=s;best=r} }
@@ -662,7 +665,7 @@ function buildMenu(seed){
   const left=S.items.filter(it=>!usedSoFar.has(it.id)&&it.key&&daysLeft(it)<=1&&daysLeft(it)>=-2&&it.storage!=='冷凍');
   if(left.length) pick(['side','soup'],true);
   // ランキング（あと1品で作れるものも含む）
-  const ranked=RECIPES.map(r=>({r,m:M[r.id],s:scoreRecipe(r,M[r.id],new Set(),0)}))
+  const ranked=ALL.map(r=>({r,m:M[r.id],s:scoreRecipe(r,M[r.id],new Set(),0)}))
     .filter(x=>x.m.rows.some(y=>y.hit&&!y.opt)).sort((a,b)=>b.s-a.s);
   return {picks,ranked,usedSoFar};
 }
@@ -722,7 +725,7 @@ function whyTags(m){
 }
 function dishHTML(r,m,kind){
   return `<div class="dish" data-r="${r.id}"><div class="em">${r.emoji}</div><div class="grow">
-    <div class="kind">${kind||TYPE_LABEL[r.type]}・${r.time}分</div><div class="nm">${esc(r.name)}</div>
+    <div class="kind">${kind||((r.mine?'マイレシピ・':'')+TYPE_LABEL[r.type])}・${r.time}分</div><div class="nm">${esc(r.name)}</div>
     <div class="why">${whyTags(m)}</div></div><div class="go">›</div></div>`;
 }
 function renderMenu(){
@@ -753,17 +756,19 @@ let RQ='',RT='all';
 function renderRecipes(){
   const el=$('#tab-recipes');
   const byKey=itemsByKey();
-  const types=['all','can','main','side','soup','one'];
-  const lab={all:'すべて',can:'今作れる',...TYPE_LABEL};
-  let list=RECIPES.map(r=>({r,m:matchRecipe(r,byKey)}));
+  const types=['all','can','mine','main','side','soup','one'];
+  const lab={all:'すべて',can:'今作れる',mine:'マイレシピ',...TYPE_LABEL};
+  let list=ALL.map(r=>({r,m:matchRecipe(r,byKey)}));
   const q=norm(RQ);
   if(q){const key=findIng(q); list=list.filter(x=>x.r.name.includes(q)||(key&&x.r.ing.some(i=>i[0].split('|').includes(key))))}
-  if(RT==='can') list=list.filter(x=>!x.m.missing); else if(RT!=='all') list=list.filter(x=>x.r.type===RT);
+  if(RT==='can') list=list.filter(x=>!x.m.missing); else if(RT==='mine') list=list.filter(x=>x.r.mine); else if(RT!=='all') list=list.filter(x=>x.r.type===RT);
   list.sort((a,b)=>a.m.missing-b.m.missing);
-  el.innerHTML=`<input id="rq" type="search" placeholder="料理名・食材で検索（例：豚こま）" value="${esc(RQ)}">
+  el.innerHTML=`<button class="btn block" id="addr" style="margin-bottom:10px">＋ レシピを追加（手入力・SNS投稿の貼り付け）</button>
+    <input id="rq" type="search" placeholder="料理名・食材で検索（例：豚こま）" value="${esc(RQ)}">
     <div class="filters" style="margin-top:8px">${types.map(t=>`<button class="chip ${RT===t?'on':''}" data-t="${t}">${lab[t]}</button>`).join('')}</div>
     <p class="muted" style="margin:4px 2px 8px">${list.length}品</p>
-    <div class="rlist">${list.map(x=>dishHTML(x.r,x.m,(x.m.missing?`足りない${x.m.missing}品`:'今作れる')+'・'+TYPE_LABEL[x.r.type])).join('')||'<div class="empty">見つかりませんでした</div>'}</div>`;
+    <div class="rlist">${list.map(x=>dishHTML(x.r,x.m,(x.r.mine?'マイレシピ・':'')+(x.m.missing?`足りない${x.m.missing}品`:'今作れる')+'・'+TYPE_LABEL[x.r.type])).join('')||`<div class="empty">${RT==='mine'?'まだマイレシピはありません。<br>上のボタンから、自作のレシピやSNSで見たレシピを追加できます。':'見つかりませんでした'}</div>`}</div>`;
+  $('#addr').onclick=()=>openRecipeEditor();
   const rq=$('#rq'); rq.oninput=()=>{RQ=rq.value;const p=rq.selectionStart;renderRecipes();const n=$('#rq');n.focus();n.setSelectionRange(p,p)};
   el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{RT=b.dataset.t;renderRecipes()});
   el.querySelectorAll('[data-r]').forEach(e=>e.onclick=()=>openRecipe(e.dataset.r));
@@ -771,14 +776,14 @@ function renderRecipes(){
 function renderMore(){
   const el=$('#tab-more');
   const hist=[...S.hist].reverse().slice(0,20);
-  el.innerHTML=`<h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=RECIPES.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
+  el.innerHTML=`<h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=ALL.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
   <h2>保管期限の目安について</h2><div class="card muted" style="line-height:1.7;padding:12px 14px">買った日（開封した日）からの、家庭での一般的な目安です。パックに書かれた消費期限・賞味期限があればそちらを優先して、食材をタップして日付を直してください。冷凍すると期限の目安が延びます（食材をタップ →「冷凍する」）。</div>
   <h2>データ</h2><div class="card">
     <div class="row"><button class="btn sub grow" id="exp">バックアップを書き出す</button><button class="btn sub grow" id="imp">読み込む</button></div>
     <button class="btn warn block" id="clr" style="margin-top:10px">冷蔵庫を空にする</button>
     <p class="muted">データはこの端末のブラウザ内に保存されます。</p></div>`;
   $('#exp').onclick=()=>{const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`fridge_${today()}.json`;a.click()};
-  $('#imp').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const j=JSON.parse(await i.files[0].text());if(!Array.isArray(j.items))throw 0;S=Object.assign({items:[],hist:[],seed:0},j);save();toast('読み込みました');render()}catch(e){toast('読み込めませんでした')}};i.click()};
+  $('#imp').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const j=JSON.parse(await i.files[0].text());if(!Array.isArray(j.items))throw 0;S=Object.assign({items:[],hist:[],seed:0,my:[]},j);save();refreshRecipes();toast('読み込みました');render()}catch(e){toast('読み込めませんでした')}};i.click()};
   $('#clr').onclick=()=>{if(confirm('登録した食材をすべて削除しますか？')){S.items=[];save();toast('空にしました');render()}};
 }
 
@@ -903,7 +908,7 @@ function openItem(id){
   const it=itemOf(id); if(!it) return;
   const d=daysLeft(it);
   const byKey=itemsByKey();
-  const recs=it.key?RECIPES.filter(r=>r.ing.some(i=>i[0].split('|').includes(it.key))).map(r=>({r,m:matchRecipe(r,byKey)})).sort((a,b)=>a.m.missing-b.m.missing).slice(0,6):[];
+  const recs=it.key?ALL.filter(r=>r.ing.some(i=>i[0].split('|').includes(it.key))).map(r=>({r,m:matchRecipe(r,byKey)})).sort((a,b)=>a.m.missing-b.m.missing).slice(0,6):[];
   const fz=it.key?ING[it.key].days.冷凍:30;
   openSheet(`${it.emoji} ${it.name}`,`
     <div class="row">${badge(it)}<span class="muted">${it.storage}・${fmtD(it.bought)}に購入 → ${fmtD(it.exp)}まで${it.auto?'（目安）':''}</span></div>
@@ -931,23 +936,28 @@ function openItem(id){
 
 // レシピ表示
 function openRecipe(rid){
-  const r=RECIPES.find(x=>x.id===rid); if(!r) return;
+  const r=ALL.find(x=>x.id===rid); if(!r) return;
   const m=matchRecipe(r,itemsByKey());
   const li=m.rows.map(x=>{
     const names=x.spec.split('|'); let label, mk;
-    if(x.hit){mk='<span class="mk ok">✓</span>';const dl=daysLeft(x.hit);label=`<b>${esc(x.hit.name)}</b> <span class="muted">${dl<0?'期限切れ':dl===0?'今日まで':'あと'+dl+'日'}</span>`}
+    if(x.spec.startsWith('?')){mk='<span class="mk op">・</span>';label=esc(x.spec.slice(1))}
+    else if(x.hit){mk='<span class="mk ok">✓</span>';const dl=daysLeft(x.hit);label=`<b>${esc(x.hit.name)}</b> <span class="muted">${dl<0?'期限切れ':dl===0?'今日まで':'あと'+dl+'日'}</span>`}
     else if(x.opt){mk='<span class="mk op">−</span>';label=`<span class="muted">${esc(names.join(' / '))}（なくてもOK）</span>`}
     else {mk='<span class="mk ng">！</span>';label=`${esc(names.join(' / '))} <span class="tag m">買い足し</span>`}
     return `<li>${mk}<span>${label}</span><span class="q">${esc(x.amt)}</span></li>`}).join('');
   openSheet(r.name,`
-    <div class="rhead"><div class="em">${r.emoji}</div><div><div class="muted">${TYPE_LABEL[r.type]}・調理 約${r.time}分・2人分</div>
+    <div class="rhead"><div class="em">${r.emoji}</div><div><div class="muted">${r.mine?'マイレシピ・':''}${TYPE_LABEL[r.type]}・調理 約${r.time}分・${esc(r.serv||'2人分')}</div>
     <div style="font-size:13px;margin-top:4px">${m.missing?`<span class="tag m">あと${m.missing}品そろえば作れます</span>`:'<span class="tag h">冷蔵庫の食材で作れます</span>'}</div></div></div>
-    <h2>材料</h2><ul class="ings">${li}</ul>
+    ${r.src?`<p><a href="${esc(/^https?:/.test(r.src)?r.src:'#')}" target="_blank" rel="noopener" style="color:var(--accent)">元の投稿・動画を開く ↗</a></p>`:''}
+    <h2>材料</h2><ul class="ings">${li||'<li class="muted">（なし）</li>'}</ul>
     <h2>調味料など</h2><ul class="seas">${r.seas.map((l,i)=>{const it=m.seas[i];return it?`<li class="has"><span class="mk ok">✓</span> ${esc(l)} <span class="muted">${(d=>d<0?'期限切れ':d===0?'今日まで':'あと'+d+'日')(daysLeft(it))}</span></li>`:`<li>${esc(l)}</li>`}).join('')}</ul>
     <h2>作り方 <span class="muted" style="font-weight:500">（タップで済みにできます）</span></h2>
     <ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
     <button class="btn block" id="made" style="margin-top:16px">🍳 作った！（使った食材を冷蔵庫から減らす）</button>
+    ${r.mine?`<div class="row" style="margin-top:8px"><button class="btn sub grow" id="redit">編集</button><button class="btn warn grow" id="rdel">削除</button></div>`:''}
   `,b=>{
+    if(r.mine){b.querySelector('#redit').onclick=()=>openRecipeEditor(r);
+      b.querySelector('#rdel').onclick=()=>{if(!confirm(`「${r.name}」を削除しますか？`))return;S.my=S.my.filter(x=>x.id!==r.id);save();refreshRecipes();closeSheet();toast('削除しました');render()}}
     b.querySelectorAll('ol.steps li').forEach(l=>l.onclick=()=>l.classList.toggle('done'));
     b.querySelector('#made').onclick=()=>openMade(r,m);
   });
@@ -967,6 +977,129 @@ function openMade(r,m){
   });
 }
 
+// ---------- マイレシピ（手入力・SNS投稿の貼り付け） ----------
+const SEAS_WORDS=/^(塩|砂糖|こしょう|コショウ|胡椒|塩こしょう|塩コショウ|黒こしょう|しょうゆ|醤油|酒|みりん|酢|味噌|みそ|油|サラダ油|ごま油|オリーブオイル|バター|片栗粉|小麦粉|薄力粉|パン粉|水|お湯|だし|顆粒だし|和風だし|白だし|ほんだし|鶏がら|鶏ガラ|コンソメ|ケチャップ|マヨネーズ|ソース|めんつゆ|ポン酢|豆板醤|甜麺醤|コチュジャン|オイスターソース|はちみつ|わさび|からし|ごま|白ごま|すりごま|いりごま|かつお節|鰹節|ラー油|七味|一味|粉チーズ|ナツメグ|カレー粉|カレールウ|シチュールウ|鷹の爪|唐辛子|レモン汁|ご飯|米|揚げ油|おろしにんにく|おろし生姜|にんにくチューブ|生姜チューブ|チューブにんにく|チューブ生姜)/;
+const AMT_RE=/(大さじ|小さじ|カップ|[0-9.\/]+\s*(g|kg|ml|cc|L|個|本|枚|袋|パック|束|玉|丁|切れ|株|缶|房|尾|片|かけ|cm|合|杯|膳|粒|尾|切)|少々|適量|適宜|ひとつまみ|少し|お好みで|好みで|1\/2|半分|半量|各)/;
+const BULLET=/^[\s・●○◎◆◇■□▪▫★☆✔✓✅☑\-\*•‐－–—>〇♦︎️]+/;
+const STEP_NUM=/^\s*(STEP\s*\d+|手順\s*\d+|[①-⑳]|[❶-❿]|[➀-➉]|\(?\d{1,2}[\.．\)）:：、]|[1-9]️⃣)\s*/i;
+function stripEmoji(s){return s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{20E3}]/gu,'')}
+function guessType(name){
+  if(/丼|パスタ|スパゲ|うどん|そば|蕎麦|ラーメン|カレー|チャーハン|炒飯|ご飯|ごはん|ライス|焼きそば|焼そば|雑炊|おにぎり|リゾット|グラタン|ドリア|ピザ|サンド|トースト|麺/.test(name)) return 'one';
+  if(/スープ|汁|ポタージュ|ミネストローネ|チャウダー/.test(name)) return 'soup';
+  if(/サラダ|和え|あえ|おひたし|ナムル|漬け|きんぴら|マリネ|ピクルス|白和え|煮びたし|浅漬|副菜|ディップ/.test(name)) return 'side';
+  return 'main';
+}
+// 「豚バラ 200g」「・玉ねぎ……1/2個」「醤油：大さじ1」→ {name, amt, opt}
+function splitIngLine(line){
+  let s=line.replace(BULLET,'').replace(/^[ABC](?=[^\x00-\x7F])|^[ABCabc][\s.:：、)）]+/,'').trim();
+  let opt=/お好みで|好みで|あれば|任意|なくても/.test(s);
+  s=s.replace(/[（(]\s*(任意|お好みで|あれば|なくても可|なくてもOK)\s*[)）]/g,'').trim();
+  let m=s.match(/^(.+?)\s*(?:[…‥・\.．:：]{1,}|\s+|\t)\s*(.+)$/);
+  let name,amt;
+  if(m&&AMT_RE.test(m[2])){name=m[1];amt=m[2]}
+  else{const i=s.search(AMT_RE); if(i>0){name=s.slice(0,i);amt=s.slice(i)} else {name=s;amt=''}}
+  name=name.replace(/[…‥:：\s・]+$/,'').replace(/^[A-ZＡ-Ｚa-z][\s.:：、)]\s*/,'').trim();
+  return {name,amt:amt.trim(),opt};
+}
+function isSeasoningName(name){
+  const k=findIng(name); if(k) return ING[k].cat==='調味料';
+  return SEAS_WORDS.test(name);
+}
+// SNS投稿などのテキストをレシピの形にする（推測なので保存前に確認してもらう）
+function parseRecipeText(text){
+  // ①❶➀ は NFKC で数字だけになるので、先に「1. 」の形にしておく
+  const raw=norm(text.replace(/[①-⑳]/g,c=>(c.charCodeAt(0)-0x245F)+'. ').replace(/[❶-❿]/g,c=>(c.charCodeAt(0)-0x2775)+'. ').replace(/[➀-➉]/g,c=>(c.charCodeAt(0)-0x277F)+'. '));
+  const url=(raw.match(/https?:\/\/\S+/)||[''])[0];
+  const lines=raw.replace(/https?:\/\/\S+/g,'').split(/\n/).map(l=>stripEmoji(l).replace(/#[^\s#]+/g,'').trim());
+  let mode=null,title='',serv='',ings=[],seas=[],steps=[],other=[];
+  const H_ING=/^[【\[［<〈《〔(（■□●◆◇★☆\s]*(材料|食材|用意するもの|ingredients)/i;
+  const H_STEP=/^[【\[［<〈《〔(（■□●◆◇★☆\s]*(作り方|つくり方|手順|調理方法|作りかた|how\s*to|レシピ手順)/i;
+  const H_SEAS=/^[【\[［<〈《〔(（■□●◆◇★☆\s]*(調味料|合わせ調味料|タレ|たれ|ソース|[AＡBＢ][\s】\]］:：)）]|[AＡBＢ]$)/;
+  for(const l of lines){
+    if(!l){continue}
+    const sv=l.match(/([0-9０-９]+)\s*人(分|前)/); if(sv&&!serv) serv=sv[1]+'人分';
+    if(H_ING.test(l)&&l.length<30){mode='ing';continue}
+    if(H_STEP.test(l)&&l.length<30){mode='step';continue}
+    if(mode==='ing'&&H_SEAS.test(l)&&!AMT_RE.test(l.replace(H_SEAS,''))){mode='seas';continue}
+    if(mode==='seas'&&H_STEP.test(l)){mode='step';continue}
+    if(STEP_NUM.test(l)&&(mode==='step'||(!mode&&l.length>12)||(mode&&mode!=='step'&&l.replace(STEP_NUM,'').length>14))){mode='step'}
+    if(mode==='step'){const t=l.replace(STEP_NUM,'').replace(BULLET,'').trim(); if(t.length>=2){
+        // 番号のない行は直前の手順の続きとして扱う
+        if(!STEP_NUM.test(l)&&steps.length&&!/。$/.test(steps[steps.length-1])&&t.length<40) steps[steps.length-1]+=t; else steps.push(t)} continue}
+    if(mode==='ing'||mode==='seas'||(!mode&&AMT_RE.test(l)&&l.length<40)){
+      const x=splitIngLine(l); if(!x.name||x.name.length>20){other.push(l);continue}
+      const k=findIng(x.name), isS=isSeasoningName(x.name);
+      if(isS||(mode==='seas'&&!(k&&ING[k].cat!=='調味料'))) seas.push(x); else ings.push(x);
+      if(!mode) mode='ing';
+      continue;
+    }
+    if(!title&&l.length<=40&&!/保存|フォロー|いいね|コメント|プロフィール/.test(l)) {title=l.replace(/\\[^\/]*\//g,'').replace(/[【】\[\]「」『』]/g,' ').replace(/\s+/g,' ').trim();continue}
+    other.push(l);
+  }
+  if(!steps.length) steps=other.filter(l=>l.length>15&&/[るたすて。]$/.test(l));
+  const tm=raw.match(/(?:調理時間|所要時間|作業時間|時間)\s*[:：]?\s*約?\s*([0-9]+)\s*分/);
+  title=title.replace(/(の)?(簡単|絶品|悪魔の|無限|やみつき|爆速|節約)?レシピ$/,'').trim()||'マイレシピ';
+  return {name:title.slice(0,40),type:guessType(title),time:tm?Math.min(180,+tm[1]):20,serv,ings,seas:seas.map(x=>(x.name+' '+x.amt).trim()),steps,src:url};
+}
+// フォームの1行 →  レシピの材料 [照合キー, 分量, 任意, 表示名]
+function ingFromLine(line){
+  const x=splitIngLine(line); if(!x.name) return null;
+  const key=findIng(x.name);
+  if(key&&ING[key].cat!=='調味料') return [key,x.amt,x.opt?1:0,x.name];
+  return ['?'+x.name,x.amt,1,x.name];
+}
+function lineFromIng(i){return ((i[3]||i[0].replace(/^\?/,'').split('|')[0])+' '+(i[1]||'')).trim()+(i[2]&&!i[0].startsWith('?')?'（任意）':'')}
+function openRecipeEditor(r,fromPaste){
+  const isNew=!r||!r.mine;
+  const base=r||{name:'',type:'main',time:20,serv:'',ing:[],seas:[],steps:[],src:''};
+  const ingText=base.ings?base.ings.map(x=>(x.name+' '+x.amt).trim()+(x.opt?'（任意）':'')).join('\n'):base.ing.map(lineFromIng).join('\n');
+  openSheet(isNew?'レシピを追加':'レシピを編集',`
+    ${isNew&&!fromPaste?`<div class="seg" id="emode"><button class="on" data-m="paste">投稿を貼り付け</button><button data-m="form">自分で書く</button></div>
+    <div id="pastebox">
+      <label class="f">InstagramやTikTok、YouTube、Xなどの投稿文（キャプション・概要欄）をそのまま貼り付け</label>
+      <textarea id="pt" rows="9" placeholder="例）&#10;やみつき豚バラ大根&#10;【材料】2人分&#10;・豚バラ 200g&#10;・大根 1/3本&#10;A 醤油 大さじ2&#10;A みりん 大さじ2&#10;【作り方】&#10;①大根を切ってレンジで5分&#10;②豚バラを炒めて…"></textarea>
+      <button class="btn block" id="pparse" style="margin-top:10px">読み取る</button>
+      <p class="muted">動画そのものは読み込めないので、説明文に材料や作り方が書いてある投稿で使えます。読み取った内容は次の画面で直せます。</p>
+    </div>`:''}
+    <div id="formbox" ${isNew&&!fromPaste?'hidden':''}>
+      ${fromPaste?'<div class="estim">読み取った結果です。違うところを直してから保存してください。</div>':''}
+      <label class="f">料理名</label><input id="rn" value="${esc(base.name)}" placeholder="例：豚バラ大根">
+      <label class="f">種類</label><div class="seg" id="rt">${Object.entries(TYPE_LABEL).map(([k,v])=>`<button data-t="${k}" class="${base.type===k?'on':''}">${v.replace('・ご飯','')}</button>`).join('')}</div>
+      <div class="row"><div class="grow"><label class="f">調理時間（分）</label><input id="rtm" type="number" inputmode="numeric" value="${base.time||20}"></div>
+      <div class="grow"><label class="f">何人分</label><input id="rsv" value="${esc(base.serv||'')}" placeholder="2人分"></div></div>
+      <label class="f">材料（1行に1つ。「豚バラ 200g」のように。なくてもいいものは「（任意）」）</label>
+      <textarea id="ri" rows="6" placeholder="豚バラ 200g&#10;大根 1/3本&#10;青ねぎ 少々（任意）">${esc(ingText)}</textarea>
+      <div class="estim" id="rimatch"></div>
+      <label class="f">調味料（1行に1つ）</label>
+      <textarea id="rs" rows="4" placeholder="醤油 大さじ2&#10;みりん 大さじ2">${esc(base.seas.join('\n'))}</textarea>
+      <label class="f">作り方（1行に1手順）</label>
+      <textarea id="rp" rows="7" placeholder="大根を切ってレンジで5分加熱する&#10;豚バラを炒める">${esc(base.steps.join('\n'))}</textarea>
+      <label class="f">元の投稿・動画のURL（任意）</label><input id="ru" type="url" value="${esc(base.src||'')}" placeholder="https://">
+      <button class="btn block" id="rsave" style="margin-top:16px">保存する</button>
+    </div>`,b=>{
+    let type=base.type||'main';
+    b.querySelectorAll('#rt button').forEach(x=>x.onclick=()=>{type=x.dataset.t;b.querySelectorAll('#rt button').forEach(y=>y.classList.toggle('on',y===x))});
+    b.querySelectorAll('#emode button').forEach(x=>x.onclick=()=>{b.querySelectorAll('#emode button').forEach(y=>y.classList.toggle('on',y===x));b.querySelector('#pastebox').hidden=x.dataset.m!=='paste';b.querySelector('#formbox').hidden=x.dataset.m==='paste'});
+    const pp=b.querySelector('#pparse'); if(pp) pp.onclick=()=>{const t=b.querySelector('#pt').value; if(!t.trim()){toast('投稿文を貼り付けてください');return}
+      const r2=parseRecipeText(t); if(!r2.ings.length&&!r2.steps.length){toast('材料や作り方が見つかりませんでした');}
+      openRecipeEditor(r2,true)};
+    const ri=b.querySelector('#ri'),rim=b.querySelector('#rimatch');
+    const showMatch=()=>{const L=ri.value.split('\n').map(ingFromLine).filter(Boolean);
+      rim.innerHTML=L.length?'冷蔵庫と照合：'+L.map(i=>i[0].startsWith('?')?`<span class="muted">${esc(i[3])}（照合なし）</span>`:`<b>${esc(i[0])}</b>${i[2]?'（任意）':''}`).join('、'):'材料を書くと、冷蔵庫のどの食材と照合するかがここに出ます。'};
+    ri.oninput=showMatch; showMatch();
+    b.querySelector('#rsave').onclick=()=>{
+      const name=norm(b.querySelector('#rn').value); if(!name){toast('料理名を入れてください');b.querySelector('#rn').focus();return}
+      const lines=id=>b.querySelector(id).value.split('\n').map(s=>s.replace(STEP_NUM,'').replace(BULLET,'').trim()).filter(Boolean);
+      const rec={id:(r&&r.mine)?r.id:'u_'+uid(),mine:true,name,type,emoji:{main:'🍽️',side:'🥗',soup:'🥣',one:'🍚'}[type],
+        time:Math.max(1,parseInt(b.querySelector('#rtm').value)||20),serv:norm(b.querySelector('#rsv').value),
+        ing:b.querySelector('#ri').value.split('\n').map(ingFromLine).filter(Boolean),
+        seas:lines('#rs'),steps:lines('#rp'),src:norm(b.querySelector('#ru').value)};
+      S.my=S.my||[]; const i=S.my.findIndex(x=>x.id===rec.id); if(i>=0) S.my[i]=rec; else S.my.push(rec);
+      save(); refreshRecipes(); toast('レシピを保存しました'); RT='mine'; TAB='recipes'; render(); openRecipe(rec.id);
+    };
+  });
+}
+
 // お試しデータ
 function loadDemo(){
   const t=today();
@@ -982,6 +1115,6 @@ render();
 // 日付が変わったら描き直す
 let lastDay=today(); setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&today()!==lastDay){lastDay=today();render()}});
-window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING};
+window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL};
 </script>
 </body></html>
