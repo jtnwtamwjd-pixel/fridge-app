@@ -582,7 +582,8 @@ function estDays(key,cat,storage){
 const LS='fridge_app_v1';
 let S={items:[],hist:[],seed:0,my:[]};
 try{const j=JSON.parse(localStorage.getItem(LS)||'null'); if(j&&Array.isArray(j.items)) S=Object.assign(S,j)}catch(e){}
-function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+function save(){saveLocal(); if(typeof syncPush==='function') syncPush()}
 // 標準レシピ＋マイレシピ
 let ALL=[];
 function refreshRecipes(){ALL=[...(S.my||[]),...RECIPES];for(const r of ALL) r.seasK=r.seas.map(seasKeys)}
@@ -674,7 +675,7 @@ function buildMenu(seed){
 let TAB='fridge', FILTER='all';
 function render(){
   const urgent=S.items.filter(it=>daysLeft(it)<=1).length;
-  $('#hdrSub').textContent=`${fmtD(today())}　食材 ${S.items.length}品`+(urgent?`・早めに使いたい ${urgent}品`:'');
+  $('#hdrSub').textContent=`${fmtD(today())}　食材 ${S.items.length}品`+(urgent?`・早めに使いたい ${urgent}品`:'')+syncLabel();
   for(const t of ['fridge','menu','recipes','more']) $('#tab-'+t).hidden=t!==TAB;
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));
   $('#fab').hidden=!(TAB==='fridge'||TAB==='menu');
@@ -777,12 +778,14 @@ function renderRecipes(){
 function renderMore(){
   const el=$('#tab-more');
   const hist=[...S.hist].reverse().slice(0,20);
-  el.innerHTML=`<h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=ALL.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
+  el.innerHTML=`<h2>家族と同期</h2>${syncCardHTML()}
+  <h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=ALL.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
   <h2>保管期限の目安について</h2><div class="card muted" style="line-height:1.7;padding:12px 14px">買った日（開封した日）からの、家庭での一般的な目安です。パックに書かれた消費期限・賞味期限があればそちらを優先して、食材をタップして日付を直してください。冷凍すると期限の目安が延びます（食材をタップ →「冷凍する」）。</div>
-  <h2>データ</h2><div class="card">
+  <h2>データ</h2><div class="card" style="padding:12px 14px">
     <div class="row"><button class="btn sub grow" id="exp">バックアップを書き出す</button><button class="btn sub grow" id="imp">読み込む</button></div>
     <button class="btn warn block" id="clr" style="margin-top:10px">冷蔵庫を空にする</button>
     <p class="muted">データはこの端末のブラウザ内に保存されます。</p></div>`;
+  bindSyncCard();
   $('#exp').onclick=()=>{const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`fridge_${today()}.json`;a.click()};
   $('#imp').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const j=JSON.parse(await i.files[0].text());if(!Array.isArray(j.items))throw 0;S=Object.assign({items:[],hist:[],seed:0,my:[]},j);save();refreshRecipes();toast('読み込みました');render()}catch(e){toast('読み込めませんでした')}};i.click()};
   $('#clr').onclick=()=>{if(confirm('登録した食材をすべて削除しますか？')){S.items=[];save();toast('空にしました');render()}};
@@ -972,7 +975,7 @@ function openMade(r,m){
     b.querySelector('#ok').onclick=()=>{
       const ids=[...b.querySelectorAll('input:checked')].map(i=>i.dataset.id);
       S.items=S.items.filter(it=>!ids.includes(it.id));
-      S.hist.push({rid:r.id,date:today()}); if(S.hist.length>200) S.hist=S.hist.slice(-200);
+      S.hist.push({id:uid(),rid:r.id,date:today(),t:Date.now()}); if(S.hist.length>200) S.hist=S.hist.slice(-200);
       S.seed=0; save(); closeSheet(); toast(`${r.name} を記録しました`); render();
     };
   });
@@ -1092,7 +1095,7 @@ function openRecipeEditor(r,fromPaste){
     b.querySelector('#rsave').onclick=()=>{
       const name=norm(b.querySelector('#rn').value); if(!name){toast('料理名を入れてください');b.querySelector('#rn').focus();return}
       const lines=id=>b.querySelector(id).value.split('\n').map(s=>s.replace(STEP_NUM,'').replace(BULLET,'').trim()).filter(Boolean);
-      const rec={id:(r&&r.mine)?r.id:'u_'+uid(),mine:true,name,type,emoji:{main:'🍽️',side:'🥗',soup:'🥣',one:'🍚'}[type],
+      const rec={id:(r&&r.mine)?r.id:'u_'+uid(),t:(r&&r.mine&&r.t)||Date.now(),mine:true,name,type,emoji:{main:'🍽️',side:'🥗',soup:'🥣',one:'🍚'}[type],
         time:Math.max(1,parseInt(b.querySelector('#rtm').value)||20),serv:norm(b.querySelector('#rsv').value),
         ing:b.querySelector('#ri').value.split('\n').map(ingFromLine).filter(Boolean),
         seas:lines('#rs'),steps:lines('#rp'),src:norm(b.querySelector('#ru').value)};
@@ -1109,7 +1112,7 @@ async function pipe(u8,stream){return new Uint8Array(await new Response(new Blob
 const packRecipe=r=>({n:r.name,t:r.type,m:r.time,v:r.serv||'',i:r.ing.map(x=>[x[3]||x[0].replace(/^\?/,''),x[1]||'',x[2]?1:0]),s:r.seas,p:r.steps,u:r.src||''});
 function unpackRecipe(o){
   const type=TYPE_LABEL[o.t]?o.t:'main';
-  return {id:'u_'+uid(),mine:true,name:String(o.n||'レシピ').slice(0,60),type,emoji:{main:'🍽️',side:'🥗',soup:'🥣',one:'🍚'}[type],time:+o.m||20,serv:String(o.v||''),
+  return {id:'u_'+uid(),t:Date.now(),mine:true,name:String(o.n||'レシピ').slice(0,60),type,emoji:{main:'🍽️',side:'🥗',soup:'🥣',one:'🍚'}[type],time:+o.m||20,serv:String(o.v||''),
     ing:(o.i||[]).map(([n,a,opt])=>{const x=ingFromLine(String(n)+' '+String(a||''));if(!x)return null;if(opt)x[2]=1;return x}).filter(Boolean),
     seas:(o.s||[]).map(String),steps:(o.p||[]).map(String),src:/^https?:\/\//.test(o.u||'')?o.u:''};
 }
@@ -1151,6 +1154,168 @@ async function checkShareHash(){
 }
 window.addEventListener('hashchange',checkShareHash);
 
+// ---------- 家族で同期（Firebase Firestore） ----------
+// homes/{家族コード}/items|recipes|hist/{id} に1件ずつ保存し、全員の端末でリアルタイムに同じにする
+const FB_CONFIG=null; // 公開版ではここに firebaseConfig を組み込む
+const FB_VER='10.12.2';
+const SYNC_LS='fridge_sync_v1';
+const SY={code:null,cfg:null,merge:false,status:'off',err:'',ready:{},remote:{items:{},recipes:{},hist:{}},fb:null,db:null,unsub:[]};
+try{Object.assign(SY,JSON.parse(localStorage.getItem(SYNC_LS)||'{}'))}catch(e){}
+function saveSync(){try{localStorage.setItem(SYNC_LS,JSON.stringify({code:SY.code,cfg:SY.cfg,merge:SY.merge}))}catch(e){}}
+const fbCfg=()=>FB_CONFIG||SY.cfg;
+const SYNC_COLS={items:{get:()=>S.items,set:a=>S.items=a},recipes:{get:()=>S.my,set:a=>S.my=a},hist:{get:()=>S.hist,set:a=>S.hist=a}};
+const syncOn=()=>SY.status==='on';
+// Firestoreは配列の中の配列を保存できないので、材料は {k,a,o,l} の形にして送る
+function cleanDoc(col,o){const c={...o};delete c.seasK;for(const k in c)if(c[k]===undefined)delete c[k];
+  if(col==='recipes'&&Array.isArray(c.ing)) c.ing=c.ing.map(x=>Array.isArray(x)?{k:x[0],a:x[1]??'',o:x[2]?1:0,l:x[3]??''}:x);
+  return c}
+function fromDoc(col,d){if(col==='recipes'&&Array.isArray(d.ing)) d.ing=d.ing.map(x=>Array.isArray(x)?x:[x.k,x.a,x.o,x.l]);return d}
+// キーの順番に左右されない比較用の文字列
+function stableStr(v){return Array.isArray(v)?'['+v.map(stableStr).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableStr(v[k])).join(',')+'}':JSON.stringify(v)}
+async function loadFB(){
+  if(window.__FBMOCK) return window.__FBMOCK;
+  const base=`https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const [a,u,f]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
+  return {...a,...u,...f};
+}
+function newHomeCode(){const c='abcdefghjkmnpqrstuvwxyz23456789';const r=crypto.getRandomValues(new Uint8Array(12));return [...r].map(x=>c[x%c.length]).join('')}
+// 届いたデータで手元の配列を更新する（開いている画面が古い参照を持たないよう、同じオブジェクトを書き換える）
+function applyRemote(col,map){
+  const cur=SYNC_COLS[col].get(); const byId=new Map(cur.map(o=>[o.id,o]));
+  let next=[];
+  for(const [id,data] of Object.entries(map)){
+    const o=byId.get(id);
+    if(o){for(const k of Object.keys(o)) if(k!=='seasK'&&k!=='id'&&!(k in data)) delete o[k]; Object.assign(o,data); next.push(o)}
+    else next.push({...data,id});
+  }
+  if(col==='recipes') next.sort((a,b)=>(b.t||0)-(a.t||0));
+  if(col==='hist') next.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.t||0)-(b.t||0));
+  SYNC_COLS[col].set(next);
+}
+async function syncStart(){
+  syncStop(true);
+  if(!fbCfg()||!SY.code) return;
+  SY.status='connecting'; SY.err=''; SY.ready={}; SY.remote={items:{},recipes:{},hist:{}}; renderSyncBits();
+  try{
+    const fb=SY.fb=await loadFB();
+    let app; try{app=fb.getApp('fridge')}catch(e){app=fb.initializeApp(fbCfg(),'fridge')}
+    await fb.signInAnonymously(fb.getAuth(app));
+    const db=SY.db=fb.getFirestore(app);
+    for(const col of Object.keys(SYNC_COLS)){
+      const pendingLocal=SYNC_COLS[col].get().map(o=>({...o}));
+      SY.unsub.push(fb.onSnapshot(fb.collection(db,'homes',SY.code,col),snap=>{
+        const map={}; snap.forEach(d=>{map[d.id]=d.data()});
+        SY.remote[col]=Object.fromEntries(Object.entries(map).map(([k,v])=>{const c={...v};delete c.id;return [k,stableStr(c)]}));
+        if(!SY.ready[col]){
+          SY.ready[col]=true;
+          // 参加時に「この端末のデータも追加」を選んだら、手元にしかないものを足す
+          if(SY.merge) for(const o of pendingLocal) if(o.id&&!map[o.id]) map[o.id]=cleanDoc(col,o);
+        }
+        for(const k in map) map[k]=fromDoc(col,{...map[k]});
+        applyRemote(col,map);
+        if(col==='recipes') refreshRecipes();
+        if(Object.keys(SYNC_COLS).every(c=>SY.ready[c])){
+          if(SY.status!=='on'){SY.status='on'; if(SY.merge){SY.merge=false;saveSync()}}
+          saveLocal(); syncPush();
+        }
+        render();
+      },e=>syncFail(e)));
+    }
+  }catch(e){syncFail(e)}
+}
+function syncFail(e){
+  console.error(e); SY.status='error';
+  SY.err=/permission/i.test(String(e&&(e.code||e.message)))?'読み書きが許可されていません（Firestoreのルールか匿名ログインの設定を確認してください）':
+    (navigator.onLine===false?'オフラインです':'接続できませんでした：'+String(e&&(e.code||e.message)||e).slice(0,80));
+  renderSyncBits();
+}
+function syncStop(keepCode){
+  for(const u of SY.unsub) try{u()}catch(e){}
+  SY.unsub=[]; SY.status='off'; SY.ready={};
+  if(!keepCode){SY.code=null;saveSync()}
+}
+// 手元とクラウドの差分だけを書き込む
+function syncPush(){
+  if(!syncOn()||!SY.db) return;
+  const fb=SY.fb; let batch=fb.writeBatch(SY.db), n=0; const commits=[];
+  const put=(fn)=>{fn(batch); if(++n>=450){commits.push(batch.commit());batch=fb.writeBatch(SY.db);n=0}};
+  for(const col of Object.keys(SYNC_COLS)){
+    const local={};
+    for(const o of SYNC_COLS[col].get()){ if(!o.id) o.id=uid(); const d=cleanDoc(col,o); delete d.id; local[o.id]=[stableStr(d),d] }
+    const remote=SY.remote[col];
+    for(const [id,[j,d]] of Object.entries(local)) if(remote[id]!==j){ const ref=fb.doc(SY.db,'homes',SY.code,col,id); put(b=>b.set(ref,d)); remote[id]=j }
+    for(const id of Object.keys(remote)) if(!(id in local)){ const ref=fb.doc(SY.db,'homes',SY.code,col,id); put(b=>b.delete(ref)); delete remote[id] }
+  }
+  if(n) commits.push(batch.commit());
+  Promise.all(commits).catch(syncFail);
+}
+function renderSyncBits(){ if(TAB==='more') renderMore(); const h=$('#hdrSub'); if(h) render() }
+function syncLabel(){return {off:'',connecting:'・同期の接続中…',on:'・家族と同期中',error:'・同期エラー'}[SY.status]}
+// firebaseConfig の貼り付け（JSでもJSONでも読めるように）
+function parseFbConfig(t){
+  const o={}; for(const m of String(t).matchAll(/["']?(\w+)["']?\s*:\s*["']([^"']+)["']/g)) o[m[1]]=m[2];
+  return o.apiKey&&o.projectId&&o.appId?o:null;
+}
+function inviteURL(){
+  let u=location.href.split(/[?#]/)[0]+'?home='+SY.code;
+  if(!FB_CONFIG&&SY.cfg) u+='#cfg='+b64u.enc(new TextEncoder().encode(JSON.stringify(SY.cfg)));
+  return u;
+}
+async function sendInvite(){
+  const url=inviteURL(), text='冷蔵庫ごはんの家族グループへの招待です。リンクを開いて「参加する」を押してください。';
+  if(navigator.share){try{await navigator.share({title:'冷蔵庫ごはん 家族の招待',text,url});return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{await navigator.clipboard.writeText(url);toast('招待リンクをコピーしました');return}catch(e){}
+  openSheet('招待リンク',`<textarea rows="5" readonly>${esc(url)}</textarea>`);
+}
+function openJoin(code){
+  const hasLocal=S.items.length+(S.my||[]).length>0;
+  openSheet('家族のグループに参加',`
+    <p>家族コード <b>${esc(code)}</b> のグループに参加します。参加すると、食材リスト・マイレシピ・作った記録が家族全員で同じになります。</p>
+    ${hasLocal?`<label class="check"><input type="checkbox" id="jm" checked><span>この端末に登録済みの食材・レシピも、グループに追加する<br><span class="muted">外すと、この端末の今のデータはグループの内容に置き換わります</span></span></label>`:''}
+    <button class="btn block" id="jok" style="margin-top:16px">参加する</button>`,b=>{
+    b.querySelector('#jok').onclick=()=>{const m=b.querySelector('#jm');SY.code=code;SY.merge=m?m.checked:false;saveSync();closeSheet();toast('参加しました');syncStart()};
+  });
+}
+function openSyncSetup(){
+  openSheet('Firebaseの設定',`
+    <p class="muted">Firebaseのプロジェクト設定にある <code>firebaseConfig</code> の中身（apiKey〜appId）をそのまま貼り付けてください。</p>
+    <textarea id="fc" rows="9" placeholder='apiKey: "AIza...",&#10;authDomain: "....firebaseapp.com",&#10;projectId: "...",&#10;storageBucket: "...",&#10;messagingSenderId: "...",&#10;appId: "..."'>${SY.cfg?esc(JSON.stringify(SY.cfg,null,1)):''}</textarea>
+    <button class="btn block" id="fcok" style="margin-top:12px">保存</button>`,b=>{
+    b.querySelector('#fcok').onclick=()=>{const c=parseFbConfig(b.querySelector('#fc').value);if(!c){toast('apiKey・projectId・appId が見つかりません');return}
+      SY.cfg=c;saveSync();closeSheet();toast('保存しました');if(SY.code)syncStart();else render()};
+  });
+}
+function syncCardHTML(){
+  if(!fbCfg()) return `<div class="card" style="padding:12px 14px"><p class="muted" style="margin-top:0">家族のスマホと、食材リスト・マイレシピ・作った記録を同じにできます。使うにはFirebase（Googleの無料データベース）の設定が必要です。</p><button class="btn sub block" id="fbset">Firebaseの設定を貼り付ける</button></div>`;
+  if(!SY.code) return `<div class="card" style="padding:12px 14px"><p class="muted" style="margin-top:0">家族のスマホと、食材リスト・マイレシピ・作った記録をリアルタイムで同じにできます。</p>
+    <button class="btn block" id="mkhome">家族のグループを作る</button>
+    <label class="f">招待された家族コードで参加</label><div class="row"><input id="jcode" class="grow" placeholder="12文字のコード" autocapitalize="off"><button class="btn sub" id="jgo">参加</button></div>
+    ${FB_CONFIG?'':'<button class="btn ghost block" id="fbset" style="margin-top:10px">Firebaseの設定を変更</button>'}</div>`;
+  const st={off:'停止中',connecting:'接続中…',on:'✅ 同期中',error:'⚠️ '+esc(SY.err)}[SY.status];
+  return `<div class="card" style="padding:12px 14px"><div>${st}</div><div class="muted" style="margin:6px 0 12px">家族コード：<b style="user-select:all">${esc(SY.code)}</b>（家族以外には教えないでください）</div>
+    <button class="btn block" id="invite">家族に招待リンクを送る</button>
+    <div class="row" style="margin-top:8px">${SY.status==='error'?'<button class="btn sub grow" id="retry">再接続</button>':''}<button class="btn warn grow" id="leave">同期をやめる</button></div>
+    <p class="muted">やめても、この端末には今のデータが残ります。</p></div>`;
+}
+function bindSyncCard(){
+  const on=(id,f)=>{const e=$('#'+id); if(e) e.onclick=f};
+  on('fbset',openSyncSetup);
+  on('mkhome',()=>{SY.code=newHomeCode();SY.merge=true;saveSync();toast('家族のグループを作りました');syncStart()});
+  on('jgo',()=>{const c=norm($('#jcode').value).toLowerCase().replace(/[^a-z0-9]/g,'');if(c.length<12){toast('家族コードは12文字です');return}openJoin(c)});
+  on('invite',sendInvite);
+  on('retry',syncStart);
+  on('leave',()=>{if(confirm('家族との同期をやめますか？（この端末のデータは残ります）')){syncStop();toast('同期をやめました');render()}});
+}
+function checkInvite(){
+  const q=new URLSearchParams(location.search); const code=(q.get('home')||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const cm=location.hash.match(/#cfg=([A-Za-z0-9_-]+)/);
+  if(!code&&!cm) return;
+  if(cm&&!FB_CONFIG){try{const c=JSON.parse(new TextDecoder().decode(b64u.dec(cm[1])));if(c.apiKey){SY.cfg=c;saveSync()}}catch(e){}}
+  history.replaceState(null,'',location.href.split(/[?#]/)[0]);
+  if(code.length>=12&&code!==SY.code&&fbCfg()) openJoin(code);
+}
+window.addEventListener('online',()=>{if(SY.code&&SY.status==='error')syncStart()});
+
 // お試しデータ
 function loadDemo(){
   const t=today();
@@ -1162,10 +1327,10 @@ function loadDemo(){
 // ---------- boot ----------
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;if(!$('#sheet').hidden)closeSheet();render();scrollTo(0,0)});
 $('#fab').onclick=()=>openAdd();
-render(); checkShareHash();
+checkInvite(); render(); checkShareHash(); if(SY.code) syncStart();
 // 日付が変わったら描き直す
 let lastDay=today(); setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&today()!==lastDay){lastDay=today();render()}});
-window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare};
+window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare,SY,syncStart,syncPush};
 </script>
 </body></html>
