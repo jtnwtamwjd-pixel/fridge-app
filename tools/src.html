@@ -973,7 +973,7 @@ function photoExpiryUI(box,onPick){
 }
 
 // ---------- AI画像認識（任意・Gemini API。キーはこの端末だけに保存） ----------
-const AI_LS='fridge_ai_v1', GEMINI_MODEL='gemini-flash-latest';
+const AI_LS='fridge_ai_v1', GEMINI_MODELS=['gemini-flash-latest','gemini-flash-lite-latest'];
 let AI={}; try{AI=JSON.parse(localStorage.getItem(AI_LS)||'{}')}catch(e){}
 const aiOn=()=>!!AI.key;
 function saveAI(){try{localStorage.setItem(AI_LS,JSON.stringify(AI))}catch(e){}}
@@ -985,12 +985,23 @@ function fileToB64(file,maxPx=1280){
 async function askVision(file,prompt){
   if(window.__AIMOCK) return window.__AIMOCK(prompt);
   const b64=await fileToB64(file);
-  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,{
-    method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':AI.key},
-    body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:.1}})});
-  const j=await res.json().catch(()=>({}));
+  const body=JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:.1}});
+  let res,j,lastErr;
+  for(const m of GEMINI_MODELS){
+    const ac=new AbortController(), to=setTimeout(()=>ac.abort(),25000);
+    try{
+      res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json','x-goog-api-key':AI.key},body});
+      j=await res.json().catch(()=>({}));
+    }catch(e){ res=null; lastErr=e; }
+    clearTimeout(to);
+    // 混雑(503/500)・上限(429)・タイムアウト・モデル無し(404)のときは軽量モデルで再挑戦
+    if(res&&res.ok) break;
+    if(res&&![429,500,503,404].includes(res.status)) break;
+  }
+  if(!res) throw new Error(lastErr&&lastErr.name==='AbortError'?'AIの応答がありませんでした。もう一度試してください':'通信できませんでした');
   if(res.status===402) throw new Error('Geminiのプロジェクトのクレジットが残っていません（AI Studioで支払い設定を確認してください）');
   if(res.status===429) throw new Error('無料枠の上限に達しました。少し時間をおいて試してください');
+  if(res.status===503||res.status===500) throw new Error('AIが混み合っています。少し時間をおいて試してください');
   if(res.status===400||res.status===403) throw new Error('APIキーが使えません（キーを確認してください）');
   if(!res.ok) throw new Error(j.error&&j.error.message||('HTTP '+res.status));
   const t=j.candidates&&j.candidates[0]&&j.candidates[0].content.parts.map(p=>p.text||'').join('');
