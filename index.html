@@ -1778,7 +1778,7 @@ function photoExpiryUI(box,onPick){
 }
 
 // ---------- AI画像認識（任意・Gemini API。キーはこの端末だけに保存） ----------
-const AI_LS='fridge_ai_v1', GEMINI_MODEL='gemini-2.5-flash';
+const AI_LS='fridge_ai_v1', GEMINI_MODEL='gemini-flash-latest';
 let AI={}; try{AI=JSON.parse(localStorage.getItem(AI_LS)||'{}')}catch(e){}
 const aiOn=()=>!!AI.key;
 function saveAI(){try{localStorage.setItem(AI_LS,JSON.stringify(AI))}catch(e){}}
@@ -1790,10 +1790,13 @@ function fileToB64(file,maxPx=1280){
 async function askVision(file,prompt){
   if(window.__AIMOCK) return window.__AIMOCK(prompt);
   const b64=await fileToB64(file);
-  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(AI.key)}`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
+  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,{
+    method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':AI.key},
     body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:.1}})});
   const j=await res.json().catch(()=>({}));
+  if(res.status===402) throw new Error('Geminiのプロジェクトのクレジットが残っていません（AI Studioで支払い設定を確認してください）');
+  if(res.status===429) throw new Error('無料枠の上限に達しました。少し時間をおいて試してください');
+  if(res.status===400||res.status===403) throw new Error('APIキーが使えません（キーを確認してください）');
   if(!res.ok) throw new Error(j.error&&j.error.message||('HTTP '+res.status));
   const t=j.candidates&&j.candidates[0]&&j.candidates[0].content.parts.map(p=>p.text||'').join('');
   return JSON.parse(String(t).replace(/^```json|```$/g,'').trim());
@@ -1811,10 +1814,10 @@ function aiCardHTML(){
     <button class="btn warn block" id="aidel">キーを削除</button>`:
     `<p class="muted" style="margin-top:0">Googleの Gemini（無料枠あり）を使うと、写真から野菜の量を推定したり、期限を正確に読み取ったりできます。設定しなくても、期限の数字は端末内の文字認識で読み取れます。</p>
     <ol class="muted" style="padding-left:18px;line-height:1.7;margin:6px 0"><li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">Google AI Studio</a> で「APIキーを作成」</li><li>できたキーを下に貼り付けて保存</li></ol>
-    <div class="row"><input id="aikey" class="grow" placeholder="AIza..." autocomplete="off"><button class="btn sub" id="aisave">保存</button></div>`}</div>`;
+    <div class="row"><input id="aikey" class="grow" placeholder="AIza... または AQ...." autocomplete="off"><button class="btn sub" id="aisave">保存</button></div>`}</div>`;
 }
 function bindAICard(){
-  const s=$('#aisave'); if(s) s.onclick=()=>{const k=$('#aikey').value.trim(); if(!/^[A-Za-z0-9_\-]{20,}$/.test(k)){toast('キーの形式が正しくないようです');return} AI.key=k; saveAI(); toast('保存しました'); render()};
+  const s=$('#aisave'); if(s) s.onclick=()=>{const k=$('#aikey').value.trim(); if(!/^[A-Za-z0-9_.\-]{20,}$/.test(k)){toast('キーの形式が正しくないようです');return} AI.key=k; saveAI(); toast('保存しました'); render()};
   const d=$('#aidel'); if(d) d.onclick=()=>{if(confirm('この端末からAIのキーを削除しますか？')){AI={};saveAI();render()}};
 }
 // 写真から在庫を登録・更新
