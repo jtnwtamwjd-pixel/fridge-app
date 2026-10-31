@@ -765,7 +765,7 @@ window.addEventListener('hashchange',checkShareHash);
 
 // ---------- 家族で同期（Firebase Firestore） ----------
 // homes/{家族コード}/items|recipes|hist/{id} に1件ずつ保存し、全員の端末でリアルタイムに同じにする
-const FB_CONFIG=null; // 公開版ではここに firebaseConfig を組み込む
+const FB_CONFIG={apiKey:"AIzaSyDegPdxMuktMR1DfipeM5EncLPoK9_8Sz0",authDomain:"fridge-app-cc09f.firebaseapp.com",projectId:"fridge-app-cc09f",storageBucket:"fridge-app-cc09f.firebasestorage.app",messagingSenderId:"819072255455",appId:"1:819072255455:web:8cf28e30f449a0e426b06a"}; // 公開用の設定値（守りはFirestoreのルールで行う）
 const FB_VER='10.12.2';
 const SYNC_LS='fridge_sync_v1';
 const SY={code:null,cfg:null,merge:false,status:'off',err:'',ready:{},remote:{items:{},recipes:{},hist:{}},fb:null,db:null,unsub:[]};
