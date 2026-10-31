@@ -173,6 +173,26 @@ button:focus-visible,[tabindex]:focus-visible,a:focus-visible{outline:3px solid 
 @media(prefers-color-scheme:dark){.dish .em,.rhead .em{background:#e2e4d8} .chip.on{color:#15221b}}
 @media(prefers-reduced-motion:reduce){.sheet,.scrim{transition:none}}
 
+
+/* Density pass: keep illustrations, reduce scrolling. */
+header{padding:14px 18px 10px}header h1{font-size:19px}header .sub{margin-top:3px}
+main{padding:14px 16px calc(150px + env(safe-area-inset-bottom))}
+.alert{padding:10px 12px;line-height:1.6;margin-bottom:10px}.alert a{display:inline;width:auto;min-height:0;line-height:inherit;margin-left:6px}
+#stockph{padding:10px 8px;min-height:44px;margin-bottom:6px!important}
+.filters{padding:6px 0 10px}.chip{min-height:34px;padding:6px 11px}
+.card,.rlist{margin-bottom:12px}
+.item{padding:9px 0;min-height:0;gap:10px}.item .em{width:38px;height:38px;font-size:22px;border-radius:9px}.item .nm .muted{display:inline;margin:0 0 0 4px}.item .meta{margin-top:2px}
+h2{font-size:16px;margin:18px 0 8px}
+.seg{padding:3px;margin-bottom:10px!important}.seg button{min-height:38px}
+.dish{padding:11px 0;gap:10px}.dish .em{width:60px;height:60px;border-radius:10px}.dish .nm{margin:0 0 2px;line-height:1.4}.dish .kind{margin-bottom:3px;line-height:1.5}
+#tab-menu>.card>.dish:first-child .em{width:68px;height:68px}
+.cover{padding:10px 0;line-height:1.6}
+.nutg{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 10px;margin:8px 0 6px}.nv{font-size:15px;margin:1px 0}.nt{font-size:9px}.bar{height:4px;margin:3px 0 2px}
+.sheet .rhead{flex-direction:row;align-items:center;gap:12px;margin-bottom:12px}.rhead .em{width:96px;height:96px;flex:none}.rhead .em .dish-art{width:96px;height:96px}
+.steps li{padding:9px 0 9px 32px}.steps li::before{top:11px}.ings li{min-height:42px;line-height:1.6}
+.sheet .sb{padding:14px 18px 32px}label.f{margin:14px 0 6px}
+.cal .d{min-height:64px;padding-top:4px}.calh{margin:0 0 10px}
+.empty{padding:28px 10px}
 </style></head>
 <body>
 <header><h1>冷蔵庫ごはん</h1><div class="sub" id="hdrSub"></div></header>
@@ -321,20 +341,35 @@ function extLinks(q,tag){const e=encodeURIComponent;
     <a class="chip" target="_blank" rel="noopener" href="https://www.instagram.com/explore/tags/${e((tag||q).replace(/[\s・]/g,''))}/">インスタで探す ↗</a>
     <a class="chip" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${e(q+' レシピ')}">YouTubeで探す ↗</a></div>`}
 const TYPE_LABEL={main:'主菜',side:'副菜',soup:'汁物',one:'丼・麺・ご飯'};
-function buildMenu(seed){
+// 朝→昼→晩の順に組み立て、前の食事で選んだ料理は除き、使う食材は「もう使う予定」として扱う
+function buildDay(seed){
+  const t=today(), out={}, excl=new Set(), pre=new Set(), keep=MEAL;
+  for(const h of S.hist) if(h.date===t&&h.rid) excl.add(h.rid);
+  try{
+    for(const ml of ['b','l','d']){
+      MEAL=ml; const plan=buildMenu(seed?seed+{b:0,l:101,d:202}[ml]:0,{excl:new Set(excl),pre:new Set(pre)});
+      out[ml]=plan;
+      const done=S.hist.some(h=>h.date===t&&histMeal(h)===ml);
+      if(!done) for(const p of plan.picks){excl.add(p.r.id);for(const id of plan.usedSoFar)pre.add(id)}
+    }
+  }finally{MEAL=keep}
+  return out;
+}
+function buildMenu(seed,opt){
+  const excl=(opt&&opt.excl)||new Set(), pre=(opt&&opt.pre)||new Set();
   const byKey=itemsByKey(); const rand=rng(seed+1);
   const noise={}; for(const r of ALL) noise[r.id]=seed?rand()*2.2:0;
   const M={}; for(const r of ALL) M[r.id]=matchRecipe(r,byKey);
-  const ok=r=>!M[r.id].missing&&M[r.id].rows.some(x=>x.hit&&!x.opt)&&(!S.quick||isQuick(r))&&(MEAL!=='b'||isQuick(r)||r.time<=15);
-  const solo=r=>scoreRecipe(r,M[r.id],new Set(),noise[r.id]);
+  const ok=r=>!excl.has(r.id)&&!M[r.id].missing&&M[r.id].rows.some(x=>x.hit&&!x.opt)&&(!S.quick||isQuick(r))&&(MEAL!=='b'||isQuick(r)||r.time<=15);
+  const solo=r=>scoreRecipe(r,M[r.id],pre,noise[r.id]);
   const pool=(types,n)=>ALL.filter(r=>types.includes(r.type)&&ok(r)).sort((a,b)=>solo(b)-solo(a)).slice(0,n);
   const mains=pool(['main','one'],10), sides=pool(['side'],10), soups=pool(['soup'],6);
   // 組み合わせの価値 = 期限が近い食材を使える度合い − 栄養の偏り − 品数
   const value=list=>{
     const best=new Map(); let s=0;
     for(const r of list){const m=M[r.id]; s+=noise[r.id]-recentPenalty(r);
-      for(const x of m.rows) if(x.hit){const u=urgency(x.hit)*(x.opt?.6:1); if(u>(best.get(x.hit.id)||0)) best.set(x.hit.id,u)}
-      for(const it of m.seas) if(it){const u=urgency(it)*.5; if(u>(best.get(it.id)||0)) best.set(it.id,u)}}
+      for(const x of m.rows) if(x.hit){const u=urgency(x.hit)*(x.opt?.6:1)*(pre.has(x.hit.id)?.2:1); if(u>(best.get(x.hit.id)||0)) best.set(x.hit.id,u)}
+      for(const it of m.seas) if(it){const u=urgency(it)*.5*(pre.has(it.id)?.2:1); if(u>(best.get(it.id)||0)) best.set(it.id,u)}}
     for(const u of best.values()) s+=u;
     const maxN=MEAL==='d'?3:2;
     return s-1.1*nutPenalty(menuNut(list))-Math.max(0,list.length-maxN)*(MEAL==='d'?.7:1.2)-(MEAL==='d'&&!list.some(r=>r.type==='soup')?.3:0)+(MEAL==='l'&&list.some(r=>r.type==='one')?.6:0);
@@ -347,7 +382,7 @@ function buildMenu(seed){
   }
   const picks=bestList.map(r=>({r,m:M[r.id],slot:r.type}));
   const usedSoFar=new Set(); for(const p of picks){for(const x of p.m.rows) if(x.hit) usedSoFar.add(x.hit.id); for(const it of p.m.seas) if(it) usedSoFar.add(it.id)}
-  const ranked=ALL.map(r=>({r,m:M[r.id],s:scoreRecipe(r,M[r.id],new Set(),0)}))
+  const ranked=ALL.filter(r=>!excl.has(r.id)).map(r=>({r,m:M[r.id],s:scoreRecipe(r,M[r.id],pre,0)}))
     .filter(x=>x.m.rows.some(y=>y.hit&&!y.opt)).sort((a,b)=>b.s-a.s);
   return {picks,ranked,usedSoFar,nut:picks.length?menuNut(bestList):null};
 }
@@ -531,7 +566,7 @@ function dishHTML(r,m,kind){
 function renderMenu(){
   const el=$('#tab-menu');
   if(!S.items.length){el.innerHTML=`<div class="empty"><div class="big">🍽️</div><p>食材を登録すると、期限が近いものから使い切れる献立を提案します。</p><button class="btn sub" id="demo">お試し用の食材を入れてみる</button></div>`;$('#demo').onclick=loadDemo;return}
-  const {picks,ranked,usedSoFar,nut}=buildMenu(S.seed);
+  const DAY=buildDay(S.seed), {picks,ranked,usedSoFar,nut}=DAY[MEAL];
   let h=`<div class="seg" id="mealseg" style="margin:6px 0 8px">${Object.keys(MEALS).map(k=>`<button data-ml="${k}" class="${MEAL===k?'on':''}">${MEAL_EM[k]} ${MEALS[k]}</button>`).join('')}</div>
     <div class="row" style="margin:6px 0 8px"><h2 class="grow" style="margin:0">${fmtD(today())}の${MEAL_NAME[MEAL]}</h2><button class="chip ${S.quick?'on':''}" id="qmode">⚡ 時短だけ</button></div>`;
   const todayDone=S.hist.filter(x=>x.date===today()&&histMeal(x)===MEAL);
@@ -542,8 +577,12 @@ function renderMenu(){
       ${nutGridHTML(nut,true)}<div style="margin-top:6px">${nutComments(nut)}</div></div>`;
     const urgentAll=S.items.filter(it=>it.key&&daysLeft(it)<=2&&daysLeft(it)>=-2&&it.storage!=='冷凍');
     const covered=urgentAll.filter(it=>usedSoFar.has(it.id)), notc=urgentAll.filter(it=>!usedSoFar.has(it.id));
+    const other=ml=>notc.filter(it=>ml!==MEAL&&DAY[ml].usedSoFar.has(it.id));
+    const later=Object.keys(MEALS).filter(ml=>ml!==MEAL&&other(ml).length).map(ml=>`${MEALS[ml]}：${other(ml).map(i=>esc(i.name)).join('、')}`);
+    const rest=notc.filter(it=>!Object.keys(MEALS).some(ml=>ml!==MEAL&&DAY[ml].usedSoFar.has(it.id)));
     if(urgentAll.length) h+=`<div class="cover">✅ 期限が近い ${urgentAll.length}品のうち <b>${covered.length}品</b> を使えます。`+
-      (notc.length?`<br><span class="muted">残り：${notc.map(i=>esc(i.name)).join('、')}（冷凍するか、明日に回しましょう）</span>`:'')+`</div>`;
+      (later.length?`<br><span class="muted">ほかの食事で使う予定（${later.join('／')}）</span>`:'')+
+      (rest.length?`<br><span class="muted">残り：${rest.map(i=>esc(i.name)).join('、')}（冷凍するか、明日に回しましょう）</span>`:'')+`</div>`;
     h+=`<div class="row" style="margin:4px 0 14px"><button class="btn sub grow" id="reroll">🔄 別の組み合わせ</button>${S.seed?'<button class="btn ghost" id="reset">最初の案</button>':''}</div></div>`;
   }else h+=`<div class="card empty">今ある食材だけで作れる料理が見つかりませんでした。<br>下の「あと少しで作れる」を見てみてください。</div>`;
   const pickIds=new Set(picks.map(p=>p.r.id));
