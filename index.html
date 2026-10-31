@@ -1614,6 +1614,8 @@ function openRecipeEditor(r,fromPaste){
     <div id="formbox" ${isNew&&!fromPaste?'hidden':''}>
       ${fromPaste?'<div class="estim">読み取った結果です。違うところを直してから保存してください。</div>':''}
       <label class="f">料理名</label><input id="rn" value="${esc(base.name)}" placeholder="例：豚バラ大根">
+      <button class="btn ghost block" id="rguess" style="margin-top:8px">✨ 料理名から材料・作り方を下書き</button>
+      <div class="muted" id="rguessmsg" style="margin-top:4px">料理名を入れると、材料や作り方を大まかに埋めます。あとは自由に直してください。</div>
       <label class="f">種類</label><div class="seg" id="rt">${Object.entries(TYPE_LABEL).map(([k,v])=>`<button data-t="${k}" class="${base.type===k?'on':''}">${v.replace('・ご飯','')}</button>`).join('')}</div>
       <div class="row"><div class="grow"><label class="f">調理時間（分）</label><input id="rtm" type="number" inputmode="numeric" value="${base.time||20}"></div>
       <div class="grow"><label class="f">何人分</label><input id="rsv" value="${esc(base.serv||'')}" placeholder="2人分"></div></div>
@@ -1638,6 +1640,29 @@ function openRecipeEditor(r,fromPaste){
     const showMatch=()=>{const L=ri.value.split('\n').map(ingFromLine).filter(Boolean);
       rim.innerHTML=L.length?'冷蔵庫と照合：'+L.map(i=>i[0].startsWith('?')?`<span class="muted">${esc(i[3])}（照合なし）</span>`:`<b>${esc(i[0])}</b>${i[2]?'（任意）':''}`).join('、'):'材料を書くと、冷蔵庫のどの食材と照合するかがここに出ます。'};
     ri.oninput=showMatch; showMatch();
+    const rn=b.querySelector('#rn'),gb=b.querySelector('#rguess'),gm=b.querySelector('#rguessmsg');
+    const isBlank=()=>!ri.value.trim()&&!b.querySelector('#rp').value.trim()&&!b.querySelector('#rs').value.trim();
+    const fill=d=>{
+      if(d.type&&TYPE_LABEL[d.type]){type=d.type;b.querySelectorAll('#rt button').forEach(y=>y.classList.toggle('on',y.dataset.t===type))}
+      if(d.time) b.querySelector('#rtm').value=d.time;
+      if(d.serv) b.querySelector('#rsv').value=d.serv;
+      ri.value=d.ings.join('\n'); b.querySelector('#rs').value=d.seas.join('\n'); b.querySelector('#rp').value=d.steps.join('\n');
+      showMatch();
+    };
+    const guess=async auto=>{
+      const name=norm(rn.value); if(!name){if(!auto)toast('先に料理名を入れてください');return}
+      if(!isBlank()&&!(auto||confirm('いま入っている材料・調味料・作り方を下書きで置き換えますか？')))return;
+      if(!isBlank()&&auto) return;
+      gb.disabled=true; gm.textContent='考え中…';
+      try{
+        const d=await draftRecipe(name);
+        if(!d){gm.innerHTML='似たレシピが見つかりませんでした。「その他 → AI画像認識」でGeminiのキーを設定すると、どんな料理名でも下書きできます。';return}
+        fill(d); gm.textContent=d.from?`「${d.from}」をもとに下書きしました。分量や手順は好みに合わせて直してください。`:'AIが大まかに下書きしました。分量や手順は好みに合わせて直してください。';
+      }catch(e){gm.textContent='下書きできませんでした：'+e.message}
+      finally{gb.disabled=false}
+    };
+    gb.onclick=()=>guess(false);
+    if(isNew) rn.addEventListener('change',()=>{if(isBlank())guess(true)});
     b.querySelector('#rsave').onclick=()=>{
       const name=norm(b.querySelector('#rn').value); if(!name){toast('料理名を入れてください');b.querySelector('#rn').focus();return}
       const lines=id=>b.querySelector(id).value.split('\n').map(s=>s.replace(STEP_NUM,'').replace(BULLET,'').trim()).filter(Boolean);
@@ -1649,6 +1674,28 @@ function openRecipeEditor(r,fromPaste){
       save(); refreshRecipes(); toast('レシピを保存しました'); RT='mine'; TAB='recipes'; render(); openRecipe(rec.id);
     };
   });
+}
+
+// ---------- 料理名から下書き（AIキーがあればGemini、なければ手持ちのレシピから似たものを探す） ----------
+function bigramSim(a,b){
+  a=a.replace(/\s/g,'');b=b.replace(/\s/g,''); if(!a||!b) return 0; if(a===b) return 1;
+  if(a.includes(b)||b.includes(a)) return .6+.4*Math.min(a.length,b.length)/Math.max(a.length,b.length);
+  const g=s=>{const m=new Map();for(let i=0;i<s.length-1;i++){const k=s.slice(i,i+2);m.set(k,(m.get(k)||0)+1)}return m};
+  const A=g(a),B=g(b);let n=0;A.forEach((v,k)=>{n+=Math.min(v,B.get(k)||0)});
+  return 2*n/Math.max(1,(a.length-1)+(b.length-1));
+}
+function localDraft(name){
+  let best=null,bs=0;
+  for(const r of ALL){const sc=bigramSim(name,r.name);if(sc>bs){bs=sc;best=r}}
+  if(!best||bs<.45) return null;
+  return {from:best.name,type:best.type,time:best.time,serv:best.serv||'2人分',ings:best.ing.map(lineFromIng),seas:[...best.seas],steps:[...best.steps]};
+}
+async function draftRecipe(name){
+  if(!aiOn()) return localDraft(name);
+  const r=await askText(`家庭料理「${name}」の一般的なレシピを2人分で考えてください。日本の家庭で手に入る材料で、分量は「200g」「1/2個」「大さじ1」のように書いてください。なくてもよい材料は opt を true に。調味料（醤油・みりん・塩など）は ings ではなく seas に入れてください。type は main(主菜) side(副菜) soup(汁物) one(丼・麺・ご飯もの) のどれか。JSONのみで {"type":"main","time":20,"serv":"2人分","ings":[{"name":"豚バラ肉","amt":"200g","opt":false}],"seas":["醤油 大さじ2"],"steps":["手順1","手順2"]} の形で答えてください。`);
+  const ings=(r.ings||[]).filter(x=>x&&x.name).map(x=>(String(x.name)+' '+String(x.amt||'')).trim()+(x.opt?'（任意）':''));
+  if(!ings.length&&!(r.steps||[]).length) return localDraft(name);
+  return {type:r.type,time:parseInt(r.time)||0,serv:String(r.serv||'2人分'),ings,seas:(r.seas||[]).map(String),steps:(r.steps||[]).map(x=>String(x).replace(STEP_NUM,''))};
 }
 
 // ---------- レシピの共有（データをリンクの # 以降に入れて送る。サーバーは使わない） ----------
@@ -1778,7 +1825,7 @@ function photoExpiryUI(box,onPick){
 }
 
 // ---------- AI画像認識（任意・Gemini API。キーはこの端末だけに保存） ----------
-const AI_LS='fridge_ai_v1', GEMINI_MODELS=['gemini-flash-latest','gemini-flash-lite-latest'];
+const AI_LS='fridge_ai_v1', GEMINI_MODELS=['gemini-flash-lite-latest','gemini-flash-latest'];
 let AI={}; try{AI=JSON.parse(localStorage.getItem(AI_LS)||'{}')}catch(e){}
 const aiOn=()=>!!AI.key;
 function saveAI(){try{localStorage.setItem(AI_LS,JSON.stringify(AI))}catch(e){}}
@@ -1790,10 +1837,17 @@ function fileToB64(file,maxPx=1280){
 async function askVision(file,prompt){
   if(window.__AIMOCK) return window.__AIMOCK(prompt);
   const b64=await fileToB64(file);
-  const body=JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:.1}});
+  return askGemini([{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}],.1);
+}
+async function askText(prompt){
+  if(window.__AIMOCK) return window.__AIMOCK(prompt);
+  return askGemini([{text:prompt}],.4);
+}
+async function askGemini(parts,temperature){
+  const body=JSON.stringify({contents:[{parts}],generationConfig:{responseMimeType:'application/json',temperature}});
   let res,j,lastErr;
   for(const m of GEMINI_MODELS){
-    const ac=new AbortController(), to=setTimeout(()=>ac.abort(),25000);
+    const ac=new AbortController(), to=setTimeout(()=>ac.abort(),20000);
     try{
       res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json','x-goog-api-key':AI.key},body});
       j=await res.json().catch(()=>({}));
