@@ -122,7 +122,7 @@ ol.steps li.done{opacity:.35;text-decoration:line-through}
 .rhead{display:flex;gap:12px;align-items:center;margin-bottom:4px}
 .rhead .em{font-size:36px}
 .check{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
-.check input{width:22px;height:22px;flex:none;accent-color:var(--accent)}
+.check input[type=checkbox]{width:22px;height:22px;flex:none;accent-color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:calc(130px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 .hist{font-size:14px;padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
@@ -1228,6 +1228,7 @@ function renderFridge(){
   let h='';
   if(expired.length) h+=`<div class="alert red">⚠️ 期限の目安を過ぎた食材：${expired.map(i=>esc(i.name)).join('、')}<br><small>においや見た目を確認して、大丈夫なら今日使いましょう。</small></div>`;
   if(soon.length) h+=`<div class="alert orange">⏰ 今日・明日中に使いたい：${soon.map(i=>esc(i.name)).join('、')}　<a href="#" id="toMenu" style="color:inherit;font-weight:900">献立を見る ›</a></div>`;
+  h+=`<button class="btn sub block" id="stockph" style="margin-bottom:10px">📷 写真で在庫を登録・更新</button>`;
   const places=['all','冷蔵','冷凍','常温','調味料'];
   const inF=(i,p)=>p==='all'||(p==='調味料'?i.cat==='調味料':i.storage===p&&i.cat!=='調味料');
   h+=`<div class="filters">${places.map(p=>`<button class="chip ${FILTER===p?'on':''}" data-f="${p}">${p==='all'?'すべて':p} ${items.filter(i=>inF(i,p)).length}</button>`).join('')}</div>`;
@@ -1242,6 +1243,7 @@ function renderFridge(){
   el.innerHTML=h;
   el.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{FILTER=b.dataset.f;render()});
   el.querySelectorAll('.item').forEach(e=>e.onclick=()=>openItem(e.dataset.id));
+  $('#stockph').onclick=openStockPhoto;
   const tm=$('#toMenu'); if(tm) tm.onclick=e=>{e.preventDefault();TAB='menu';render();scrollTo(0,0)};
 }
 function whyTags(m){
@@ -1309,6 +1311,7 @@ function renderMore(){
   const el=$('#tab-more');
   const hist=[...S.hist].reverse().slice(0,20);
   el.innerHTML=`<h2>家族と同期</h2>${syncCardHTML()}
+  <h2>AI画像認識（任意）</h2>${aiCardHTML()}
   <h2>栄養の目安</h2><div class="card" style="padding:12px 14px">
     <div class="row"><div class="grow"><label class="f" style="margin-top:0">1日の目標カロリー</label><select id="nk">${[1400,1600,1800,2000,2200,2400,2700].map(v=>`<option ${((S.nut&&S.nut.kcal)||2000)===v?'selected':''} value="${v}">${v} kcal</option>`).join('')}</select></div>
     <div class="grow"><label class="f" style="margin-top:0">献立に足すご飯</label><select id="nr">${[0,100,150,200,250].map(v=>`<option ${riceG()===v?'selected':''} value="${v}">${v?v+'g':'なし'}</option>`).join('')}</select></div></div>
@@ -1319,7 +1322,7 @@ function renderMore(){
     <div class="row"><button class="btn sub grow" id="exp">バックアップを書き出す</button><button class="btn sub grow" id="imp">読み込む</button></div>
     <button class="btn warn block" id="clr" style="margin-top:10px">冷蔵庫を空にする</button>
     <p class="muted">データはこの端末のブラウザ内に保存されます。</p></div>`;
-  bindSyncCard();
+  bindSyncCard(); bindAICard();
   const setNut=()=>{S.nut={kcal:+$('#nk').value,rice:+$('#nr').value};saveLocal();S.seed=0;toast('保存しました')};
   $('#nk').onchange=setNut; $('#nr').onchange=setNut;
   $('#exp').onclick=()=>{const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`fridge_${today()}.json`;a.click()};
@@ -1759,16 +1762,93 @@ function photoExpiryUI(box,onPick){
     st.innerHTML=`<img src="${url}" style="max-width:100%;max-height:160px;border-radius:8px;margin-top:8px;display:block"><div class="ocrs">準備中…</div>`;
     const ss=t=>{const e=st.querySelector('.ocrs');if(e)e.textContent=t};
     try{
-      const r=await (window.__OCR?window.__OCR(f):readExpiryFromPhoto(f,ss));
+      let r;
+      if(window.__OCR) r=await window.__OCR(f);
+      else if(aiOn()){ss('AIが読み取り中…');try{r={dates:await aiReadExpiry(f)}}catch(e){r=null}}
+      if(!r||!r.dates.length&&!window.__OCR&&aiOn()) r=await readExpiryFromPhoto(f,ss);
       if(!r.dates.length){ss('日付が見つかりませんでした。日付の部分を大きく、明るく写して撮り直すか、手で入力してください。');return}
       ss('読み取った日付（タップで入力）：');
       const row=document.createElement('div');row.className='sugg';
-      row.innerHTML=r.dates.slice(0,4).map(d=>`<button type="button" data-d="${d.date}">${fmtD(d.date)}${d.full?'':'（年は推定）'}</button>`).join('');
+      row.innerHTML=r.dates.slice(0,4).map(d=>`<button type="button" data-d="${d.date}">${d.label&&d.label!=='不明'?esc(d.label)+' ':''}${fmtD(d.date)}${d.full?'':'（年は推定）'}</button>`).join('');
       st.appendChild(row);
       row.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{onPick(b.dataset.d);toast(`期限を ${fmtD(b.dataset.d)} にしました`)});
       if(r.dates.length===1) onPick(r.dates[0].date);
     }catch(e){ss('文字認識を読み込めませんでした（通信環境を確認してください）')}
   };
+}
+
+// ---------- AI画像認識（任意・Gemini API。キーはこの端末だけに保存） ----------
+const AI_LS='fridge_ai_v1', GEMINI_MODEL='gemini-2.5-flash';
+let AI={}; try{AI=JSON.parse(localStorage.getItem(AI_LS)||'{}')}catch(e){}
+const aiOn=()=>!!AI.key;
+function saveAI(){try{localStorage.setItem(AI_LS,JSON.stringify(AI))}catch(e){}}
+function fileToB64(file,maxPx=1280){
+  return new Promise((ok,ng)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,maxPx/Math.max(img.width,img.height));
+    const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(img.src);ok(c.toDataURL('image/jpeg',.85).split(',')[1])};img.onerror=ng;img.src=URL.createObjectURL(file)});
+}
+async function askVision(file,prompt){
+  if(window.__AIMOCK) return window.__AIMOCK(prompt);
+  const b64=await fileToB64(file);
+  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(AI.key)}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],generationConfig:{responseMimeType:'application/json',temperature:.1}})});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error&&j.error.message||('HTTP '+res.status));
+  const t=j.candidates&&j.candidates[0]&&j.candidates[0].content.parts.map(p=>p.text||'').join('');
+  return JSON.parse(String(t).replace(/^```json|```$/g,'').trim());
+}
+async function aiReadExpiry(file){
+  const r=await askVision(file,`この写真は食品のパッケージです。印字されている「賞味期限」「消費期限」の日付を読み取ってください。今日は${today()}です。年が2桁や省略されている場合は今日に近い将来の日付として補ってください。JSONのみで {"dates":[{"date":"YYYY-MM-DD","label":"賞味期限 または 消費期限 または 不明"}]} の形で答えてください。見つからなければ空の配列にしてください。`);
+  return (r.dates||[]).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d.date)).map(d=>({date:d.date,full:true,label:d.label}));
+}
+async function aiReadStock(file){
+  const r=await askVision(file,`この写真に写っている食材（野菜・果物・肉・魚・卵・豆腐・調味料など）をすべて特定し、それぞれの現在の量を推定してください。食材名は日本で一般的な名前（例：キャベツ、玉ねぎ、豚バラ肉）にし、量は「1/2個」「3本」「約200g」のように数えやすい単位で書いてください。傷みや変色が見えたら note に書いてください。JSONのみで {"items":[{"name":"食材名","amount":"量","note":"メモ（なければ空）"}]} の形で答えてください。`);
+  return (r.items||[]).filter(x=>x&&x.name);
+}
+function aiCardHTML(){
+  return `<div class="card" style="padding:12px 14px">${aiOn()?`<div>✅ 設定済み（Gemini）</div><p class="muted">写真から野菜の量を推定したり、期限の読み取りの精度を上げたりできます。キーはこの端末にだけ保存されます。</p>
+    <button class="btn warn block" id="aidel">キーを削除</button>`:
+    `<p class="muted" style="margin-top:0">Googleの Gemini（無料枠あり）を使うと、写真から野菜の量を推定したり、期限を正確に読み取ったりできます。設定しなくても、期限の数字は端末内の文字認識で読み取れます。</p>
+    <ol class="muted" style="padding-left:18px;line-height:1.7;margin:6px 0"><li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">Google AI Studio</a> で「APIキーを作成」</li><li>できたキーを下に貼り付けて保存</li></ol>
+    <div class="row"><input id="aikey" class="grow" placeholder="AIza..." autocomplete="off"><button class="btn sub" id="aisave">保存</button></div>`}</div>`;
+}
+function bindAICard(){
+  const s=$('#aisave'); if(s) s.onclick=()=>{const k=$('#aikey').value.trim(); if(!/^[A-Za-z0-9_\-]{20,}$/.test(k)){toast('キーの形式が正しくないようです');return} AI.key=k; saveAI(); toast('保存しました'); render()};
+  const d=$('#aidel'); if(d) d.onclick=()=>{if(confirm('この端末からAIのキーを削除しますか？')){AI={};saveAI();render()}};
+}
+// 写真から在庫を登録・更新
+function openStockPhoto(){
+  if(!aiOn()){openSheet('写真で在庫を更新',`<p>写真から食材と量を読み取るには、AI（Gemini）の設定が必要です。</p><p class="muted">その他タブの「AI画像認識」でキーを設定してください（無料枠あり・数分で済みます）。</p><button class="btn block" id="goai">設定画面へ</button>`,b=>{b.querySelector('#goai').onclick=()=>{closeSheet();TAB='more';render();setTimeout(()=>{const e=$('#aikey');if(e)e.scrollIntoView({block:'center'})},100)}});return}
+  openSheet('写真で在庫を更新',`
+    <p class="muted">冷蔵庫の棚や野菜室、買ってきた食材を撮ってください。写っている食材と量をAIが推定します。</p>
+    <label class="btn block" style="display:block;text-align:center">📷 写真を撮る・選ぶ<input type="file" accept="image/*" capture="environment" hidden id="spf"></label>
+    <div id="spres"></div>`,b=>{
+    const inp=b.querySelector('#spf'), out=b.querySelector('#spres');
+    inp.onchange=async()=>{const f=inp.files[0]; if(!f) return; inp.value='';
+      out.innerHTML=`<img src="${URL.createObjectURL(f)}" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:10px;display:block"><p class="muted">AIが読み取り中…</p>`;
+      let list; try{list=await aiReadStock(f)}catch(e){out.querySelector('p').textContent='読み取れませんでした：'+String(e.message||e).slice(0,120);return}
+      if(!list.length){out.querySelector('p').textContent='食材が見つかりませんでした。もう少し近づいて撮ってみてください。';return}
+      const rows=list.map((x,i)=>{const key=findIng(x.name);const cur=key&&S.items.filter(it=>it.key===key).sort((a,b)=>daysLeft(a)-daysLeft(b))[0];
+        return {i,name:key||norm(x.name),amt:norm(x.amount||''),note:norm(x.note||''),key,cur}});
+      out.querySelector('p').textContent=`${rows.length}品見つかりました。内容を確認して「反映する」を押してください。`;
+      const box=document.createElement('div');
+      box.innerHTML=rows.map(r=>`<div class="check" style="align-items:flex-start"><input type="checkbox" data-i="${r.i}" checked style="margin-top:12px">
+        <div class="grow"><div class="row"><input class="sp-n" data-i="${r.i}" value="${esc(r.name)}" style="flex:1.2"><input class="sp-a" data-i="${r.i}" value="${esc(r.amt)}" style="flex:1"></div>
+        <div class="muted" style="margin-top:4px">${r.cur?`冷蔵庫の「${esc(r.cur.name)}」の量を更新`:'新しく追加（期限は自動で推定）'}${r.note?`<br>⚠️ ${esc(r.note)}`:''}</div></div></div>`).join('')+
+        `<button class="btn block" id="spok" style="margin-top:14px">反映する</button>`;
+      out.appendChild(box);
+      box.querySelector('#spok').onclick=()=>{let up=0,add=0;
+        for(const r of rows){ if(!box.querySelector(`input[type=checkbox][data-i="${r.i}"]`).checked) continue;
+          const name=norm(box.querySelector(`.sp-n[data-i="${r.i}"]`).value), amt=norm(box.querySelector(`.sp-a[data-i="${r.i}"]`).value); if(!name) continue;
+          const key=findIng(name); const cur=key&&S.items.filter(it=>it.key===key).sort((a,b)=>daysLeft(a)-daysLeft(b))[0];
+          if(cur){cur.amt=amt;up++}
+          else{const st=key?ING[key].def:'冷蔵';addItem({name,key,cat:key?ING[key].cat:'その他',storage:st,bought:today(),exp:addDays(today(),estDays(key,key?ING[key].cat:'その他',st)),amt});add++}
+        }
+        save(); closeSheet(); toast(`${up}品を更新、${add}品を追加しました`); render();
+      };
+    };
+  });
 }
 
 // ---------- 家族で同期（Firebase Firestore） ----------
