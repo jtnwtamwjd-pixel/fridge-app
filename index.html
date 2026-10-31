@@ -90,6 +90,13 @@ label.f{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:9px 0;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.nutg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;margin-top:8px}
+.nutg>div{min-width:0}
+.nk{font-size:11px;color:var(--muted)}
+.nv{font-size:15px;font-weight:600;white-space:nowrap}
+.nt{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:4px;background:var(--soft);border-radius:2px;margin:3px 0 2px;overflow:hidden}
+.bar i{display:block;height:100%}
 .sugg a.chip{text-decoration:none;color:var(--ink)}
 .sugg button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13px}
 .estim{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:14px;line-height:1.55}
@@ -488,7 +495,7 @@ const RECIPES = [
   steps:['玉ねぎは1cm幅のくし切りにする。','鍋に水と調味料を入れて煮立て、玉ねぎを入れて3分煮る。','牛肉を加えてほぐし、アクを取りながら5分煮る。','（あれば）おろし生姜を加える。','ご飯にのせ、お好みで卵や紅しょうがを添える。']},
  {id:'curry',name:'カレーライス',type:'one',emoji:'🍛',time:40,
   ing:[['豚こま|牛こま|鶏もも肉|合いびき肉','250g'],['玉ねぎ','2個'],['じゃがいも','2個',1],['にんじん','1本',1],['なす|かぼちゃ|しめじ','少々',1]],
-  seas:['カレールウ 1/2箱（約4皿分）','水 箱の表示どおり','サラダ油 大さじ1','ご飯 2〜3杯分（残りは翌日用に）'],
+  seas:['カレールウ 2皿分（約40g）','水 箱の表示どおり','サラダ油 大さじ1','ご飯 2杯分'],
   steps:['玉ねぎはくし切り、じゃがいも・にんじんは一口大に切る。','鍋に油を熱し、肉を炒める。色が変わったら玉ねぎ・にんじん・じゃがいもを炒める。','水を加えて煮立て、アクを取ってふたをし、弱めの中火で15分煮る。','いったん火を止めてルウを割り入れて溶かす。','再び弱火で5〜10分、とろみが出るまで時々混ぜながら煮る。']},
  {id:'chahan',name:'パラパラチャーハン',type:'one',emoji:'🍳',time:10,
   ing:[['卵','2個'],['長ねぎ|青ねぎ|玉ねぎ','1/2本',1],['ハム|ベーコン|ソーセージ|ちくわ','2枚',1],['にんじん|ピーマン','少々',1],['キムチ|しらす','少々',1]],
@@ -512,7 +519,7 @@ const RECIPES = [
   steps:['ボウルに卵・粉チーズ・牛乳・黒こしょうを混ぜておく。','スパゲッティを塩を入れた湯でゆで始める。ゆで汁を大さじ4取っておく。','フライパンにオリーブオイル・にんにくを熱し、細切りのベーコンをカリッと炒める。火を止める。','ゆで上がったパスタとゆで汁をフライパンに入れて混ぜ、少し温度を下げてから卵液を加える。','余熱でとろりとするまで手早く混ぜる。固まりそうなら火にはかけない。黒こしょうをふる。']},
  {id:'stew',name:'クリームシチュー',type:'one',emoji:'🍲',time:40,
   ing:[['鶏もも肉|鶏むね肉|ソーセージ','250g'],['玉ねぎ','1個'],['牛乳','200ml'],['じゃがいも','2個',1],['にんじん','1本',1],['ブロッコリー','1/2株',1]],
-  seas:['シチュールウ 1/2箱','水 箱の表示どおり','サラダ油 大さじ1'],
+  seas:['シチュールウ 2皿分（約40g）','水 箱の表示どおり','サラダ油 大さじ1'],
   steps:['鶏肉・じゃがいも・にんじんは一口大、玉ねぎはくし切りにする。ブロッコリーは小房に分けて別にゆでる。','鍋に油を熱し、鶏肉を炒め、野菜を加えて炒める。','水を加えて煮立て、アクを取ってふたをし、15分煮る。','火を止めてルウを溶かし、牛乳を加える。','弱火で5分、とろみがつくまで煮て、ブロッコリーを加える。']},
  {id:'yakisoba',name:'ソース焼きそば',type:'one',emoji:'🍜',time:15,
   ing:[['中華麺','2玉'],['豚こま|豚バラ|ソーセージ','100g',1],['キャベツ','2枚',1],['もやし','1/2袋',1],['にんじん|ピーマン','少々',1]],
@@ -576,9 +583,9 @@ RECIPES.push(
   seas:['水 150ml','顆粒だし 小さじ1/2','醤油 小さじ1/2','塩 少々'],
   steps:['卵を溶き、水・だし・醤油・塩を混ぜて茶こしでこす。','耐熱の器2つに具を入れ、卵液を注ぐ。','ラップをして、レンジ200Wで5〜6分加熱する（600Wだとすが立ちやすい）。','表面がふるっと固まっていれば完成。ゆるければ30秒ずつ追加する。']},
  {id:'q_range_soup',name:'マグカップ中華スープ',type:'soup',emoji:'🥣',time:4,how:'レンジ',
-  ing:[['卵|豆腐|もやし|青ねぎ|えのき','少々']],
-  seas:['水 1人分 180ml','鶏がらスープの素 小さじ1','醤油 少々','ごま油 少々'],
-  steps:['マグカップに水と鶏がらスープの素、具を入れる。','ラップをせずにレンジ600Wで2分加熱する。','卵を使う場合は溶き卵を回し入れ、さらに30秒加熱して混ぜる。','醤油・ごま油で味をととのえる。人数分くり返す。']},
+  ing:[['卵|豆腐|もやし|青ねぎ|えのき','合わせて60g']],
+  seas:['水 360ml（1杯180ml）','鶏がらスープの素 小さじ2','醤油 少々','ごま油 少々'],
+  steps:['マグカップ2つに水と鶏がらスープの素、具を半量ずつ入れる。','ラップをせずに1杯ずつレンジ600Wで2分加熱する。','卵を使う場合は溶き卵を回し入れ、さらに30秒加熱して混ぜる。','醤油・ごま油で味をととのえる。']},
  {id:'q_range_carbo',name:'レンジでワンボウルカルボナーラ',type:'one',emoji:'🍝',time:15,how:'レンジ',
   ing:[['卵','2個'],['ベーコン|ソーセージ|ハム','60g'],['チーズ','粉チーズ大さじ3',1],['牛乳','大さじ3',1]],
   seas:['スパゲッティ（7分ゆで程度） 160g','水 400ml','コンソメ 小さじ1','塩 少々','黒こしょう たっぷり'],
@@ -691,6 +698,48 @@ RECIPES.push(
   seas:['水 400ml','顆粒だし 小さじ1','味噌 大さじ2','みりん 大さじ1','おろし生姜 少々'],
   steps:['具材を食べやすく切る。','鍋に水とだしを煮立て、肉と白菜の芯を入れる。','残りの具材を加え、ふたをして5〜6分煮る。','味噌とみりんを溶き入れ、生姜を加えてひと煮する。']}
 );
+
+
+// ---- 栄養データ（日本食品標準成分表をもとにした概算・可食部100gあたり） ----
+// [kcal, たんぱく質g, 脂質g, 炭水化物g, 食物繊維g, 食塩相当量g, {単位: g}]
+// 単位の「大」は大さじ1のg数
+const NUT = {
+ キャベツ:[21,1.3,.2,5.2,1.8,0,{個:1000,枚:50,玉:1000}], 白菜:[13,.8,.1,3.2,1.3,0,{株:2000,枚:100,個:2000}], レタス:[11,.6,.1,2.8,1.1,0,{個:300,枚:30,玉:300}],
+ ほうれん草:[18,2.2,.4,3.1,2.8,0,{束:200,株:30,袋:200}], 小松菜:[13,1.5,.2,2.4,1.9,0,{束:250,株:40,袋:250}], にんじん:[35,.7,.2,9.3,2.8,.1,{本:150,cm:15}],
+ 玉ねぎ:[33,1,.1,8.4,1.5,0,{個:200,玉:200}], じゃがいも:[59,1.8,.1,17.3,1.3,0,{個:150}], 大根:[15,.5,.1,4.1,1.4,0,{本:1000,cm:30}],
+ きゅうり:[13,1,.1,3,1.1,0,{本:100}], トマト:[20,.7,.1,4.7,1,0,{個:150}], ミニトマト:[30,1.1,.1,7.2,1.4,0,{個:15}], なす:[18,1.1,.1,5.1,2.2,0,{本:80,個:80}],
+ ピーマン:[20,.9,.2,5.1,2.3,0,{個:35}], ブロッコリー:[37,5.4,.6,6.6,5.1,.1,{株:250,房:15,個:250}], もやし:[15,1.7,.1,2.6,1.3,0,{袋:200}],
+ 長ねぎ:[35,1.4,.1,8.3,2.5,0,{本:100}], 青ねぎ:[29,1.9,.3,6.5,3.2,0,{本:5,束:100}], にら:[18,1.7,.3,4,2.7,0,{束:100}], 豆苗:[27,3.8,.4,4,2.2,0,{袋:100,パック:100}],
+ ごぼう:[58,1.8,.1,15.4,5.7,0,{本:150}], れんこん:[66,1.9,.1,15.5,2,.1,{本:150,節:150}], かぼちゃ:[78,1.9,.3,20.6,3.5,0,{個:1200}], さつまいも:[126,1.2,.2,31.9,2.2,.1,{本:250}],
+ アボカド:[176,2.1,17.5,7.9,5.6,0,{個:140}], しょうが:[28,.9,.3,6.6,2.1,0,{かけ:15,片:15}], にんにく:[129,6.4,.9,27.5,6.2,0,{かけ:6,片:6}],
+ しめじ:[22,2.7,.5,4.8,3,0,{パック:100,袋:100}], えのき:[34,2.7,.2,7.6,3.9,0,{パック:85,袋:85}], しいたけ:[25,3.1,.3,6.4,4.9,0,{枚:15,個:15,パック:100}], まいたけ:[22,2,.5,4.4,3.5,0,{パック:100}],
+ 鶏もも肉:[190,16.6,14.2,0,0,.2,{枚:300}], 鶏むね肉:[133,21.3,5.9,.1,0,.1,{枚:250}], 鶏ささみ:[98,23.9,.8,.1,0,.1,{本:50}],
+ 豚こま:[220,18,16,.2,0,.1,{}], 豚バラ:[366,14.4,35.4,.1,0,.1,{枚:20}], 豚ロース:[248,19.3,19.2,.2,0,.1,{枚:100}], 牛こま:[260,17,21,.3,0,.1,{}],
+ 合いびき肉:[240,17.5,19,.3,0,.2,{}], 豚ひき肉:[209,17.7,17.2,.1,0,.1,{}], 鶏ひき肉:[171,17.5,12,0,0,.1,{}],
+ ベーコン:[400,12.9,39.1,.3,0,2,{枚:17,本:20}], ハム:[196,18.6,14.5,2,0,2.3,{枚:10}], ソーセージ:[319,11.5,30.6,3.3,0,1.9,{本:20}],
+ 鮭:[124,22.3,4.1,.1,0,.2,{切れ:80,切:80}], さば:[211,20.6,16.8,.3,0,.3,{切れ:80,切:80}], ぶり:[222,21.4,17.6,.3,0,.1,{切れ:80,切:80}], たら:[72,17.6,.2,.1,0,.3,{切れ:80,切:80}],
+ えび:[71,18.4,.3,.3,0,.4,{尾:15}], しらす:[113,24.5,2.1,.2,0,4.2,{大:5}], ちくわ:[119,12.2,2,13.5,0,2.1,{本:30}], ツナ缶:[265,17.7,21.7,.1,0,.9,{缶:70}],
+ 卵:[142,12.2,10.2,.4,0,.4,{個:50}], 牛乳:[61,3.3,3.8,4.8,0,.1,{大:15,カップ:200}], ヨーグルト:[56,3.6,3,4.9,0,.1,{}], チーズ:[340,23,27,1.4,0,2.8,{大:6,枚:18}],
+ バター:[700,.6,81,.2,0,1.9,{大:12}], 生クリーム:[404,1.9,43,6.5,0,.1,{大:15}],
+ 豆腐:[64,6.4,4,1.5,.6,0,{丁:300}], 油揚げ:[377,23.4,34.4,.4,1.3,0,{枚:30}], 厚揚げ:[143,10.7,11.3,.9,.7,0,{枚:200,丁:200}], 納豆:[190,16.5,10,12.1,6.7,.3,{パック:45}],
+ こんにゃく:[5,.1,0,2.3,2.2,0,{枚:250,袋:200}], キムチ:[27,2.3,.1,5.4,2.2,2.9,{}], うどん:[95,2.6,.4,21.6,1.3,.3,{玉:200}], 中華麺:[162,4.9,1.7,36.5,3.1,.4,{玉:150}],
+ りんご:[53,.1,.2,15.5,1.4,0,{個:250}], バナナ:[93,1.1,.2,22.5,1.1,0,{本:100}], レモン:[43,.9,.7,12.5,4.9,0,{個:100}],
+};
+// 調味料・主食（名前で照合。長い名前から順に見る）
+const SEAS_NUT = {
+ 醤油:[77,7.7,0,7.9,0,14.5,{大:18}], しょうゆ:'醤油', 本みりん:'みりん', みりん:[241,.3,0,43.2,0,0,{大:18}], 酒:[107,.4,0,4.9,0,0,{大:15}], 料理酒:'酒',
+ 酢:[25,.1,0,2.4,0,0,{大:15}], 味噌:[182,12.5,6,21.9,4.9,12.4,{大:18}], みそ:'味噌', 砂糖:[391,0,0,99.3,0,0,{大:9}], 塩:[0,0,0,0,0,99.5,{大:18}],
+ サラダ油:[890,0,100,0,0,0,{大:12}], ごま油:[890,0,100,0,0,0,{大:12}], オリーブオイル:[890,0,100,0,0,0,{大:12}], 油:'サラダ油', 揚げ油:'サラダ油',
+ 片栗粉:[338,.1,.1,81.6,0,0,{大:9}], 小麦粉:[349,8.3,1.5,75.8,2.5,0,{大:9}], 薄力粉:'小麦粉', パン粉:[364,14.6,6.8,63.4,4,1.2,{大:3}],
+ ケチャップ:[104,1.2,.2,27.4,1.7,3.1,{大:18}], マヨネーズ:[668,1.4,76,3.6,0,1.9,{大:12}], ソース:[129,.8,.1,30.9,1,5.8,{大:18}],
+ めんつゆ:[98,4.5,0,20,0,9.9,{大:18}], 白だし:'めんつゆ', ポン酢:[47,3.7,0,7.8,0,5.8,{大:17}], 鶏がらスープの素:[211,10.6,1.6,38,0,47.5,{大:7.5}], 鶏ガラスープの素:'鶏がらスープの素',
+ コンソメ:[229,7,4.3,42,0,43.2,{大:7.5,個:5.3}], 顆粒だし:[223,24.2,.3,31.1,0,40.6,{大:9}], 和風だし:'顆粒だし', オイスターソース:[105,7.7,.3,18.3,.2,11.4,{大:18}],
+ 豆板醤:[49,2,2.3,7.9,4.3,17.8,{大:18}], 甜麺醤:[249,8.5,7.7,38.1,3.1,7.3,{大:21}], はちみつ:[329,.3,0,81.9,0,0,{大:21}], 焼肉のたれ:[164,3.2,2.1,32,0,8.3,{大:18}],
+ カレールウ:[474,6.5,34.1,44.7,3.7,10.6,{皿:20,箱:160,個:20}], シチュールウ:[512,5.7,36,45.3,1.9,7,{皿:20,箱:160,個:20}], カレー粉:[338,13,12.2,63.3,36.9,.1,{大:6}],
+ ご飯:[156,2.5,.3,37.1,1.5,0,{杯:150,膳:150,茶碗:150}], スパゲッティ:[347,12.9,1.8,73.1,5.4,0,{}], パスタ:'スパゲッティ',
+ 白ごま:[604,20.3,53.8,16.5,12.6,0,{大:9}], ごま:'白ごま', かつお節:[332,77.1,2.9,.8,0,.3,{袋:2.5}], 塩昆布:[193,16.9,.4,37,13.1,18,{大:6}],
+ 粉チーズ:[445,44,30.8,1.9,0,3.8,{大:6}], 付属のたれ:[100,3,0,20,0,6,{袋:5}], 甜麺醤または味噌:'甜麺醤',
+};
 
 </script>
 <script>
@@ -814,29 +863,126 @@ function extLinks(q,tag){const e=encodeURIComponent;
 const TYPE_LABEL={main:'主菜',side:'副菜',soup:'汁物',one:'丼・麺・ご飯'};
 function buildMenu(seed){
   const byKey=itemsByKey(); const rand=rng(seed+1);
-  const noise={}; for(const r of ALL) noise[r.id]=seed?rand()*1.6:0;
+  const noise={}; for(const r of ALL) noise[r.id]=seed?rand()*2.2:0;
   const M={}; for(const r of ALL) M[r.id]=matchRecipe(r,byKey);
-  const usedSoFar=new Set(); const picks=[];
-  const pick=(types,needUse)=>{
-    let best=null,bs=-1e9;
-    for(const r of ALL){ if(!types.includes(r.type)) continue; if(S.quick&&!isQuick(r)) continue; const m=M[r.id]; if(m.missing) continue;
-      if(needUse&&!m.rows.some(x=>x.hit&&!x.opt)) continue;
-      if(picks.some(p=>p.r.id===r.id)) continue;
-      const s=scoreRecipe(r,m,usedSoFar,noise[r.id]); if(s>bs){bs=s;best=r} }
-    if(best){ picks.push({r:best,m:M[best.id],slot:best.type}); for(const x of M[best.id].rows) if(x.hit) usedSoFar.add(x.hit.id); for(const it of M[best.id].seas) if(it) usedSoFar.add(it.id) }
-    return best;
+  const ok=r=>!M[r.id].missing&&M[r.id].rows.some(x=>x.hit&&!x.opt)&&(!S.quick||isQuick(r));
+  const solo=r=>scoreRecipe(r,M[r.id],new Set(),noise[r.id]);
+  const pool=(types,n)=>ALL.filter(r=>types.includes(r.type)&&ok(r)).sort((a,b)=>solo(b)-solo(a)).slice(0,n);
+  const mains=pool(['main','one'],10), sides=pool(['side'],10), soups=pool(['soup'],6);
+  // 組み合わせの価値 = 期限が近い食材を使える度合い − 栄養の偏り − 品数
+  const value=list=>{
+    const best=new Map(); let s=0;
+    for(const r of list){const m=M[r.id]; s+=noise[r.id]-recentPenalty(r);
+      for(const x of m.rows) if(x.hit){const u=urgency(x.hit)*(x.opt?.6:1); if(u>(best.get(x.hit.id)||0)) best.set(x.hit.id,u)}
+      for(const it of m.seas) if(it){const u=urgency(it)*.5; if(u>(best.get(it.id)||0)) best.set(it.id,u)}}
+    for(const u of best.values()) s+=u;
+    return s-1.1*nutPenalty(menuNut(list))-Math.max(0,list.length-3)*.7-(list.some(r=>r.type==='soup')?0:.3);
   };
-  const main=pick(['main','one'],true);
-  pick(['side'],true);
-  // 丼ものの日は汁物、主菜の日も汁物。使える汁物がなければ省略
-  pick(['soup'],true);
-  // まだ期限が近い食材が残るなら副菜をもう1品
-  const left=S.items.filter(it=>!usedSoFar.has(it.id)&&it.key&&daysLeft(it)<=1&&daysLeft(it)>=-2&&it.storage!=='冷凍');
-  if(left.length) pick(['side','soup'],true);
-  // ランキング（あと1品で作れるものも含む）
+  let bestList=[],bv=-1e9;
+  for(const mn of (mains.length?mains:[null])) for(const sd of [null,...sides]) for(const sp of [null,...soups]) for(const sd2 of [null,...sides.slice(0,6)]){
+    if(sd2&&(!sd||sd2===sd)) continue;
+    const list=[mn,sd,sp,sd2].filter(Boolean); if(!list.length) continue;
+    const v=value(list); if(v>bv){bv=v;bestList=list}
+  }
+  const picks=bestList.map(r=>({r,m:M[r.id],slot:r.type}));
+  const usedSoFar=new Set(); for(const p of picks){for(const x of p.m.rows) if(x.hit) usedSoFar.add(x.hit.id); for(const it of p.m.seas) if(it) usedSoFar.add(it.id)}
   const ranked=ALL.map(r=>({r,m:M[r.id],s:scoreRecipe(r,M[r.id],new Set(),0)}))
     .filter(x=>x.m.rows.some(y=>y.hit&&!y.opt)).sort((a,b)=>b.s-a.s);
-  return {picks,ranked,usedSoFar};
+  return {picks,ranked,usedSoFar,nut:picks.length?menuNut(bestList):null};
+}
+
+// ---------- 栄養の計算（材料の分量から1人分を概算） ----------
+const SEAS_NUT_KEYS=Object.keys(SEAS_NUT).sort((a,b)=>b.length-a.length);
+const seasNut=k=>{let v=SEAS_NUT[k];while(typeof v==='string')v=SEAS_NUT[v];return v};
+function findSeasNut(name){for(const k of SEAS_NUT_KEYS){if(k.length===1?name.startsWith(k):name.includes(k))return k}return null}
+const NUM_RE=/(\d+(?:\.\d+)?)\s*と\s*(\d+)\/(\d+)|(\d+(?:\.\d+)?)\s*\/\s*(\d+)|(\d+(?:\.\d+)?)\s*[〜~-]\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)/;
+function numOf(s){const m=s.match(NUM_RE);if(!m)return null;
+  if(m[1])return +m[1]+m[2]/m[3]; if(m[4])return m[4]/m[5]; if(m[6])return (+m[6]+ +m[7])/2; return +m[8]}
+// 分量の文字列 → グラム
+function gramsOf(amt,units,seas){
+  const a=norm(amt||'');
+  let m=a.match(/(\d+(?:\.\d+)?)\s*kg/i); if(m) return m[1]*1000;
+  m=a.match(/(\d+(?:\.\d+)?)\s*(g|グラム|ml|cc)(?![a-z])/i); if(m) return +m[1];
+  const tb=units.大||15;
+  m=a.match(/大さじ\s*([\d.\/と〜~-]+)?/); if(m) return (m[1]?numOf(m[1])??1:1)*tb;
+  m=a.match(/小さじ\s*([\d.\/と〜~-]+)?/); if(m) return (m[1]?numOf(m[1])??1:1)*tb/3;
+  m=a.match(/カップ\s*([\d.\/と〜~-]+)?/); if(m) return (m[1]?numOf(m[1])??1:1)*200;
+  m=a.match(/([\d.\/と〜~-]+)?\s*(個|本|枚|束|株|パック|袋|玉|丁|切れ|切|かけ|片|缶|房|尾|箱|皿|杯|膳|cm|節)/);
+  if(m){const n=m[1]?numOf(m[1])??1:1;const u=units[m[2]]??Object.values(units)[0]??100;return n*u}
+  if(/ひとつまみ/.test(a)) return 1;
+  if(/少々|少し/.test(a)) return seas?.3:5;
+  if(/適量|適宜/.test(a)) return seas?2:10;
+  if(/付け合わせ|添え/.test(a)) return 40;
+  if(/半分/.test(a)) return .5*(Object.values(units)[0]??100);
+  const n=numOf(a); if(n!=null) return n*(Object.values(units)[0]??100);
+  return 0;
+}
+const VEG_EXCL=new Set(['じゃがいも','さつまいも','しょうが','にんにく']);
+const NUTC=new WeakMap();
+function addNut(t,v,g){const k=g/100;t.kcal+=v[0]*k;t.p+=v[1]*k;t.f+=v[2]*k;t.c+=v[3]*k;t.fib+=v[4]*k;t.salt+=v[5]*k}
+const zeroNut=()=>({kcal:0,p:0,f:0,c:0,fib:0,salt:0,veg:0});
+function nutOf(r){
+  if(NUTC.has(r)) return NUTC.get(r);
+  const t=zeroNut();
+  for(const [spec,amt] of r.ing){
+    let key=spec.startsWith('?')?null:spec.split('|')[0], v=key&&NUT[key];
+    if(!v){const sk=findSeasNut(spec.replace(/^\?/,''));v=sk&&seasNut(sk);key=null}
+    if(!v) continue;
+    const g=gramsOf(amt,v[6],false); addNut(t,v,g);
+    if(key&&ING[key]&&(ING[key].cat==='野菜'||ING[key].cat==='きのこ')&&!VEG_EXCL.has(key)) t.veg+=g;
+  }
+  for(const line of r.seas){
+    const raw=norm(line), gIn=raw.match(/(\d+(?:\.\d+)?)\s*(g|ml)(?![a-z])/i);
+    const x=splitIngLine(raw.replace(/[（(][^）)]*[）)]/g,' ').replace(/\s+/g,' ').trim());
+    const names=/各/.test(x.amt)?x.name.split(/[・、]/):[x.name];
+    for(const nm of names){
+      const sk=findSeasNut(nm.trim()); if(!sk) continue; const v=seasNut(sk);
+      let g=gIn&&names.length===1?+gIn[1]:gramsOf(x.amt.replace('各',''),v[6],true);
+      if(sk==='揚げ油') g=15*((numOf(r.ing[0]?.[1]||'')||300)>=100?1:1);
+      addNut(t,v,g);
+    }
+  }
+  const sv=parseFloat(norm(r.serv||'').match(/\d+(\.\d+)?/)?.[0])||2;
+  for(const k in t) t[k]/=sv;
+  NUTC.set(r,t); return t;
+}
+// 1食あたりの目安（夕食を1日の35%として）
+function nutTarget(){
+  const T=(S.nut&&S.nut.kcal)||2000, meal=T*.35;
+  return {kcal:meal,p:meal*.16/4,fLo:meal*.2/9,fHi:meal*.3/9,c:meal*.57/4,salt:T<1900?2.2:2.5,veg:120,fib:Math.round(T/2000*7)};
+}
+const riceG=()=>S.nut&&S.nut.rice!=null?S.nut.rice:150;
+function menuNut(list){
+  const t=zeroNut(); for(const r of list){const n=nutOf(r);for(const k in t)t[k]+=n[k]}
+  if(riceG()>0&&!list.some(r=>r.type==='one')) addNut(t,seasNut('ご飯'),riceG());
+  return t;
+}
+function nutPenalty(n){
+  const T=nutTarget(); let p=0;
+  p+=3.5*Math.abs(n.kcal-T.kcal)/T.kcal;
+  p+=2.5*Math.max(0,T.p-n.p)/T.p;
+  if(n.f<T.fLo) p+=1.2*(T.fLo-n.f)/T.fLo; if(n.f>T.fHi) p+=2*(n.f-T.fHi)/T.fHi;
+  p+=1.5*Math.max(0,n.salt-T.salt);
+  p+=1.6*Math.max(0,T.veg-n.veg)/T.veg;
+  p+=.8*Math.max(0,T.fib-n.fib)/T.fib;
+  return p;
+}
+function nutComments(n){
+  const T=nutTarget(), c=[];
+  if(n.kcal>T.kcal*1.2) c.push('カロリー多め'); else if(n.kcal<T.kcal*.8) c.push('カロリー控えめ');
+  if(n.p<T.p*.8) c.push('たんぱく質が少なめ（卵・豆腐・納豆をプラスすると◎）');
+  if(n.f>T.fHi*1.15) c.push('脂質多め');
+  if(n.salt>T.salt) c.push('塩分多め（汁物は半量に）');
+  if(n.veg<T.veg*.7) c.push('野菜が少なめ');
+  return c.length?c.join('・'):'バランスのよい献立です';
+}
+function nutGridHTML(n,withTarget){
+  const T=nutTarget(), r1=v=>Math.round(v), r10=v=>Math.round(v*10)/10;
+  const cells=[['エネルギー',r1(n.kcal)+'kcal',n.kcal/T.kcal],['たんぱく質',r10(n.p)+'g',n.p/T.p],['脂質',r10(n.f)+'g',n.f/T.fHi],
+    ['炭水化物',r10(n.c)+'g',n.c/T.c],['食物繊維',r10(n.fib)+'g',n.fib/T.fib],['塩分',r10(n.salt)+'g',n.salt/T.salt],['野菜',r1(n.veg)+'g',n.veg/T.veg]];
+  const tg={エネルギー:r1(T.kcal)+'kcal',たんぱく質:r1(T.p)+'g〜',脂質:`${r1(T.fLo)}〜${r1(T.fHi)}g`,炭水化物:r1(T.c)+'g',食物繊維:T.fib+'g〜',塩分:T.salt+'g以下',野菜:T.veg+'g〜'};
+  return `<div class="nutg">${cells.map(([k,v,ratio])=>{const over=k==='塩分'||k==='脂質'||k==='エネルギー'?ratio>1.15:false,under=k!=='塩分'&&ratio<.8;
+    return `<div><div class="nk">${k}</div><div class="nv">${v}</div>${withTarget?`<div class="bar"><i style="width:${Math.min(100,ratio*100)}%;background:${over?'var(--red)':under?'var(--orange)':'var(--accent)'}"></i></div><div class="nt">目安 ${tg[k]}</div>`:''}</div>`}).join('')}</div>`;
 }
 
 // ---------- rendering ----------
@@ -894,16 +1040,18 @@ function whyTags(m){
 }
 function dishHTML(r,m,kind){
   return `<div class="dish" data-r="${r.id}"><div class="em">${r.emoji}</div><div class="grow">
-    <div class="kind">${kind||((r.mine?'マイレシピ・':'')+TYPE_LABEL[r.type])}${r.how?'・'+r.how:''}・${r.time}分</div><div class="nm">${esc(r.name)}</div>
+    <div class="kind">${kind||((r.mine?'マイレシピ・':'')+TYPE_LABEL[r.type])}${r.how?'・'+r.how:''}・${r.time}分・${Math.round(nutOf(r).kcal)}kcal</div><div class="nm">${esc(r.name)}</div>
     <div class="why">${whyTags(m)}</div></div><div class="go">›</div></div>`;
 }
 function renderMenu(){
   const el=$('#tab-menu');
   if(!S.items.length){el.innerHTML=`<div class="empty"><div class="big">🍽️</div><p>食材を登録すると、期限が近いものから使い切れる献立を提案します。</p><button class="btn sub" id="demo">お試し用の食材を入れてみる</button></div>`;$('#demo').onclick=loadDemo;return}
-  const {picks,ranked,usedSoFar}=buildMenu(S.seed);
+  const {picks,ranked,usedSoFar,nut}=buildMenu(S.seed);
   let h=`<div class="row" style="margin:6px 0 8px"><h2 class="grow" style="margin:0">${fmtD(today())}のおすすめ献立</h2><button class="chip ${S.quick?'on':''}" id="qmode">⚡ 時短だけ</button></div>`;
   if(picks.length){
     h+=`<div class="card">${picks.map(p=>dishHTML(p.r,p.m)).join('')}`;
+    h+=`<div class="cover"><b>1人分の栄養（概算）</b>${!picks.some(p=>p.r.type==='one')&&riceG()>0?`<span class="muted">　ご飯${riceG()}g込み</span>`:''}
+      ${nutGridHTML(nut,true)}<div style="margin-top:6px">${nutComments(nut)}</div></div>`;
     const urgentAll=S.items.filter(it=>it.key&&daysLeft(it)<=2&&daysLeft(it)>=-2&&it.storage!=='冷凍');
     const covered=urgentAll.filter(it=>usedSoFar.has(it.id)), notc=urgentAll.filter(it=>!usedSoFar.has(it.id));
     if(urgentAll.length) h+=`<div class="cover">✅ 期限が近い ${urgentAll.length}品のうち <b>${covered.length}品</b> を使えます。`+
@@ -949,6 +1097,10 @@ function renderMore(){
   const el=$('#tab-more');
   const hist=[...S.hist].reverse().slice(0,20);
   el.innerHTML=`<h2>家族と同期</h2>${syncCardHTML()}
+  <h2>栄養の目安</h2><div class="card" style="padding:12px 14px">
+    <div class="row"><div class="grow"><label class="f" style="margin-top:0">1日の目標カロリー</label><select id="nk">${[1400,1600,1800,2000,2200,2400,2700].map(v=>`<option ${((S.nut&&S.nut.kcal)||2000)===v?'selected':''} value="${v}">${v} kcal</option>`).join('')}</select></div>
+    <div class="grow"><label class="f" style="margin-top:0">献立に足すご飯</label><select id="nr">${[0,100,150,200,250].map(v=>`<option ${riceG()===v?'selected':''} value="${v}">${v?v+'g':'なし'}</option>`).join('')}</select></div></div>
+    <p class="muted">献立は夕食を1日の35%として、カロリー・たんぱく質・脂質・塩分・野菜量が目安に近くなるように組みます。目安：成人女性は1,400〜2,000、成人男性は2,000〜2,700kcal程度。</p></div>
   <h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=ALL.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
   <h2>保管期限の目安について</h2><div class="card muted" style="line-height:1.7;padding:12px 14px">買った日（開封した日）からの、家庭での一般的な目安です。パックに書かれた消費期限・賞味期限があればそちらを優先して、食材をタップして日付を直してください。冷凍すると期限の目安が延びます（食材をタップ →「冷凍する」）。</div>
   <h2>データ</h2><div class="card" style="padding:12px 14px">
@@ -956,6 +1108,8 @@ function renderMore(){
     <button class="btn warn block" id="clr" style="margin-top:10px">冷蔵庫を空にする</button>
     <p class="muted">データはこの端末のブラウザ内に保存されます。</p></div>`;
   bindSyncCard();
+  const setNut=()=>{S.nut={kcal:+$('#nk').value,rice:+$('#nr').value};saveLocal();S.seed=0;toast('保存しました')};
+  $('#nk').onchange=setNut; $('#nr').onchange=setNut;
   $('#exp').onclick=()=>{const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`fridge_${today()}.json`;a.click()};
   $('#imp').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const j=JSON.parse(await i.files[0].text());if(!Array.isArray(j.items))throw 0;S=Object.assign({items:[],hist:[],seed:0,my:[]},j);save();refreshRecipes();toast('読み込みました');render()}catch(e){toast('読み込めませんでした')}};i.click()};
   $('#clr').onclick=()=>{if(confirm('登録した食材をすべて削除しますか？')){S.items=[];save();toast('空にしました');render()}};
@@ -1124,6 +1278,7 @@ function openRecipe(rid){
     <div class="rhead"><div class="em">${r.emoji}</div><div><div class="muted">${r.mine?'マイレシピ・':''}${TYPE_LABEL[r.type]}・調理 約${r.time}分・${esc(r.serv||'2人分')}</div>
     <div style="font-size:13px;margin-top:4px">${m.missing?`<span class="tag m">あと${m.missing}品そろえば作れます</span>`:'<span class="tag h">冷蔵庫の食材で作れます</span>'}</div></div></div>
     ${r.src?`<p><a href="${esc(/^https?:/.test(r.src)?r.src:'#')}" target="_blank" rel="noopener" style="color:var(--accent)">元の投稿・動画を開く ↗</a></p>`:''}
+    <h2>栄養（1人分・概算）</h2>${nutGridHTML(nutOf(r),false)}<p class="muted" style="margin:4px 0 0">材料の分量から計算した目安です${r.type==='one'?'（ご飯・麺を含む）':'（ご飯は含みません）'}。</p>
     <h2>材料</h2><ul class="ings">${li||'<li class="muted">（なし）</li>'}</ul>
     <h2>調味料など</h2><ul class="seas">${r.seas.map((l,i)=>{const it=m.seas[i];return it?`<li class="has"><span class="mk ok">✓</span> ${esc(l)} <span class="muted">${(d=>d<0?'期限切れ':d===0?'今日まで':'あと'+d+'日')(daysLeft(it))}</span></li>`:`<li>${esc(l)}</li>`}).join('')}</ul>
     <h2>作り方 <span class="muted" style="font-weight:500">（タップで済みにできます）</span></h2>
@@ -1357,7 +1512,7 @@ function applyRemote(col,map){
   let next=[];
   for(const [id,data] of Object.entries(map)){
     const o=byId.get(id);
-    if(o){for(const k of Object.keys(o)) if(k!=='seasK'&&k!=='id'&&!(k in data)) delete o[k]; Object.assign(o,data); next.push(o)}
+    if(o){NUTC.delete(o);for(const k of Object.keys(o)) if(k!=='seasK'&&k!=='id'&&!(k in data)) delete o[k]; Object.assign(o,data); next.push(o)}
     else next.push({...data,id});
   }
   if(col==='recipes') next.sort((a,b)=>(b.t||0)-(a.t||0));
@@ -1503,6 +1658,6 @@ checkInvite(); render(); checkShareHash(); if(SY.code) syncStart();
 // 日付が変わったら描き直す
 let lastDay=today(); setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&today()!==lastDay){lastDay=today();render()}});
-window.__F={S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare,SY,syncStart,syncPush};
+window.__F={nutOf:r=>nutOf(r),S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare,SY,syncStart,syncPush};
 </script>
 </body></html>
