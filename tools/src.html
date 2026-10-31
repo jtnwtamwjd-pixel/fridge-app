@@ -86,6 +86,17 @@ h2:first-child{margin-top:6px}
 .sheet .sb{flex:1;overflow-y:auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .sheet .closeb{margin-top:20px}
 label.f{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal .wd{text-align:center;font-size:11px;color:var(--muted);padding:4px 0}
+.cal .d{min-height:64px;border:1px solid var(--line);border-radius:8px;padding:3px 2px;background:var(--bg);display:flex;flex-direction:column;align-items:center;gap:1px;font-size:12px}
+.cal .d.o{visibility:hidden}.cal .d.t{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cal .d .n{font-size:12px;color:var(--ink)}.cal .d.sun .n{color:#d33}.cal .d.sat .n{color:#36c}
+.cal .d .m{display:flex;gap:1px;font-size:13px;line-height:1.1;min-height:15px}
+.cal .d .m i{font-style:normal;width:15px;text-align:center}.cal .d .m i.e{opacity:.25;font-size:8px;line-height:15px}
+.calh{display:flex;align-items:center;gap:8px;margin:6px 0 8px}.calh h2{margin:0;flex:1;text-align:center}
+.meal-h{font-weight:700;margin:14px 0 4px;display:flex;align-items:center;gap:8px}
+.rec{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.rec .x2{border:0;background:var(--soft);border-radius:8px;padding:6px 10px;color:var(--muted)}
 .seg{display:flex;background:var(--soft);border-radius:10px;padding:3px}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:9px 0;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
@@ -134,6 +145,7 @@ ol.steps li.done{opacity:.35;text-decoration:line-through}
   <section id="tab-fridge"></section>
   <section id="tab-menu" hidden></section>
   <section id="tab-recipes" hidden></section>
+  <section id="tab-cal" hidden></section>
   <section id="tab-more" hidden></section>
 </main>
 <button class="fab" id="fab" aria-label="食材を追加">＋ 追加</button>
@@ -141,6 +153,7 @@ ol.steps li.done{opacity:.35;text-decoration:line-through}
   <button data-tab="fridge" class="on"><span class="i">🧊</span>冷蔵庫</button>
   <button data-tab="menu"><span class="i">🍽️</span>今日の献立</button>
   <button data-tab="recipes"><span class="i">📖</span>レシピ</button>
+  <button data-tab="cal"><span class="i">📅</span>記録</button>
   <button data-tab="more"><span class="i">⚙️</span>その他</button>
 </nav>
 <div class="scrim" id="scrim" hidden></div>
@@ -203,6 +216,11 @@ function saveLocal(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 function save(){saveLocal(); if(typeof syncPush==='function') syncPush()}
 // 標準レシピ＋マイレシピ
 let ALL=[];
+// 朝・昼・晩
+const MEALS={b:'朝',l:'昼',d:'晩'}, MEAL_NAME={b:'朝ごはん',l:'昼ごはん',d:'晩ごはん'}, MEAL_EM={b:'🌅',l:'☀️',d:'🌙'};
+function mealNow(){const d=NOW?new Date(NOW):new Date();const h=d.getHours()+d.getMinutes()/60;return h<10.5?'b':h<15.5?'l':'d'}
+let MEAL=mealNow();
+const histMeal=h=>h.meal||'d';
 function refreshRecipes(){ALL=[...(S.my||[]),...RECIPES];for(const r of ALL) r.seasK=r.seas.map(seasKeys)}
 refreshRecipes();
 
@@ -272,7 +290,7 @@ function buildMenu(seed){
   const byKey=itemsByKey(); const rand=rng(seed+1);
   const noise={}; for(const r of ALL) noise[r.id]=seed?rand()*2.2:0;
   const M={}; for(const r of ALL) M[r.id]=matchRecipe(r,byKey);
-  const ok=r=>!M[r.id].missing&&M[r.id].rows.some(x=>x.hit&&!x.opt)&&(!S.quick||isQuick(r));
+  const ok=r=>!M[r.id].missing&&M[r.id].rows.some(x=>x.hit&&!x.opt)&&(!S.quick||isQuick(r))&&(MEAL!=='b'||isQuick(r)||r.time<=15);
   const solo=r=>scoreRecipe(r,M[r.id],new Set(),noise[r.id]);
   const pool=(types,n)=>ALL.filter(r=>types.includes(r.type)&&ok(r)).sort((a,b)=>solo(b)-solo(a)).slice(0,n);
   const mains=pool(['main','one'],10), sides=pool(['side'],10), soups=pool(['soup'],6);
@@ -283,7 +301,8 @@ function buildMenu(seed){
       for(const x of m.rows) if(x.hit){const u=urgency(x.hit)*(x.opt?.6:1); if(u>(best.get(x.hit.id)||0)) best.set(x.hit.id,u)}
       for(const it of m.seas) if(it){const u=urgency(it)*.5; if(u>(best.get(it.id)||0)) best.set(it.id,u)}}
     for(const u of best.values()) s+=u;
-    return s-1.1*nutPenalty(menuNut(list))-Math.max(0,list.length-3)*.7-(list.some(r=>r.type==='soup')?0:.3);
+    const maxN=MEAL==='d'?3:2;
+    return s-1.1*nutPenalty(menuNut(list))-Math.max(0,list.length-maxN)*(MEAL==='d'?.7:1.2)-(MEAL==='d'&&!list.some(r=>r.type==='soup')?.3:0)+(MEAL==='l'&&list.some(r=>r.type==='one')?.6:0);
   };
   let bestList=[],bv=-1e9;
   for(const mn of (mains.length?mains:[null])) for(const sd of [null,...sides]) for(const sp of [null,...soups]) for(const sd2 of [null,...sides.slice(0,6)]){
@@ -353,10 +372,11 @@ function nutOf(r){
   for(const k in t) t[k]/=sv;
   NUTC.set(r,t); return t;
 }
-// 1食あたりの目安（夕食を1日の35%として）
-function nutTarget(){
-  const T=(S.nut&&S.nut.kcal)||2000, meal=T*.35;
-  return {kcal:meal,p:meal*.16/4,fLo:meal*.2/9,fHi:meal*.3/9,c:meal*.57/4,salt:T<1900?2.2:2.5,veg:120,fib:Math.round(T/2000*7)};
+// 1食あたりの目安（朝25%・昼35%・晩35%）
+function nutTarget(ml){
+  ml=ml||MEAL;
+  const T=(S.nut&&S.nut.kcal)||2000, sh={b:.25,l:.35,d:.35}[ml], meal=T*sh;
+  return {kcal:meal,p:meal*.16/4,fLo:meal*.2/9,fHi:meal*.3/9,c:meal*.57/4,salt:ml==='b'?2:T<1900?2.2:2.5,veg:ml==='b'?70:120,fib:Math.round(T/2000*(ml==='b'?5:7))};
 }
 const riceG=()=>S.nut&&S.nut.rice!=null?S.nut.rice:150;
 function menuNut(list){
@@ -397,10 +417,10 @@ let TAB='fridge', FILTER='all';
 function render(){
   const urgent=S.items.filter(it=>daysLeft(it)<=1).length;
   $('#hdrSub').textContent=`${fmtD(today())}　食材 ${S.items.length}品`+(urgent?`・早めに使いたい ${urgent}品`:'')+syncLabel();
-  for(const t of ['fridge','menu','recipes','more']) $('#tab-'+t).hidden=t!==TAB;
+  for(const t of ['fridge','menu','recipes','cal','more']) $('#tab-'+t).hidden=t!==TAB;
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));
   $('#fab').hidden=!(TAB==='fridge'||TAB==='menu');
-  ({fridge:renderFridge,menu:renderMenu,recipes:renderRecipes,more:renderMore})[TAB]();
+  ({fridge:renderFridge,menu:renderMenu,recipes:renderRecipes,cal:renderCal,more:renderMore})[TAB]();
 }
 function badge(it){
   const d=daysLeft(it);
@@ -456,7 +476,10 @@ function renderMenu(){
   const el=$('#tab-menu');
   if(!S.items.length){el.innerHTML=`<div class="empty"><div class="big">🍽️</div><p>食材を登録すると、期限が近いものから使い切れる献立を提案します。</p><button class="btn sub" id="demo">お試し用の食材を入れてみる</button></div>`;$('#demo').onclick=loadDemo;return}
   const {picks,ranked,usedSoFar,nut}=buildMenu(S.seed);
-  let h=`<div class="row" style="margin:6px 0 8px"><h2 class="grow" style="margin:0">${fmtD(today())}のおすすめ献立</h2><button class="chip ${S.quick?'on':''}" id="qmode">⚡ 時短だけ</button></div>`;
+  let h=`<div class="seg" id="mealseg" style="margin:6px 0 8px">${Object.keys(MEALS).map(k=>`<button data-ml="${k}" class="${MEAL===k?'on':''}">${MEAL_EM[k]} ${MEALS[k]}</button>`).join('')}</div>
+    <div class="row" style="margin:6px 0 8px"><h2 class="grow" style="margin:0">${fmtD(today())}の${MEAL_NAME[MEAL]}</h2><button class="chip ${S.quick?'on':''}" id="qmode">⚡ 時短だけ</button></div>`;
+  const todayDone=S.hist.filter(x=>x.date===today()&&histMeal(x)===MEAL);
+  if(todayDone.length) h+=`<div class="alert">✅ この${MEAL_NAME[MEAL]}は記録済み：${todayDone.map(x=>esc(histLabel(x))).join('、')}</div>`;
   if(picks.length){
     h+=`<div class="card">${picks.map(p=>dishHTML(p.r,p.m)).join('')}`;
     h+=`<div class="cover"><b>1人分の栄養（概算）</b>${!picks.some(p=>p.r.type==='one')&&riceG()>0?`<span class="muted">　ご飯${riceG()}g込み</span>`:''}
@@ -476,6 +499,7 @@ function renderMenu(){
   el.innerHTML=h;
   el.querySelectorAll('[data-r]').forEach(e=>e.onclick=()=>openRecipe(e.dataset.r));
   $('#qmode').onclick=()=>{S.quick=!S.quick;S.seed=0;saveLocal();render()};
+  el.querySelectorAll('#mealseg button').forEach(x=>x.onclick=()=>{MEAL=x.dataset.ml;S.seed=0;render()});
   const rr=$('#reroll'); if(rr) rr.onclick=()=>{S.seed++;save();render()};
   const rs=$('#reset'); if(rs) rs.onclick=()=>{S.seed=0;save();render()};
 }
@@ -511,7 +535,7 @@ function renderMore(){
     <div class="row"><div class="grow"><label class="f" style="margin-top:0">1日の目標カロリー</label><select id="nk">${[1400,1600,1800,2000,2200,2400,2700].map(v=>`<option ${((S.nut&&S.nut.kcal)||2000)===v?'selected':''} value="${v}">${v} kcal</option>`).join('')}</select></div>
     <div class="grow"><label class="f" style="margin-top:0">献立に足すご飯</label><select id="nr">${[0,100,150,200,250].map(v=>`<option ${riceG()===v?'selected':''} value="${v}">${v?v+'g':'なし'}</option>`).join('')}</select></div></div>
     <p class="muted">献立は夕食を1日の35%として、カロリー・たんぱく質・脂質・塩分・野菜量が目安に近くなるように組みます。目安：成人女性は1,400〜2,000、成人男性は2,000〜2,700kcal程度。</p></div>
-  <h2>作った料理の記録</h2><div class="card">${hist.length?hist.map(h=>{const r=ALL.find(x=>x.id===h.rid);return `<div class="hist"><span class="muted">${fmtD(h.date)}</span><span>${r?r.emoji+' '+esc(r.name):''}</span></div>`}).join(''):'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
+  <h2>作った料理の記録</h2><div class="card">${hist.length?hist.slice(0,5).map(h=>`<div class="hist"><span class="muted">${fmtD(h.date)} ${MEALS[histMeal(h)]}</span><span>${esc(histEmoji(h)+' '+histLabel(h))}</span></div>`).join('')+'<button class="btn sub block" id="tocal" style="margin-top:8px">📅 カレンダーで見る</button>':'<div class="muted">まだありません。レシピ画面の「作った！」で記録されます。最近作った料理は提案に出にくくなります。</div>'}</div>
   <h2>保管期限の目安について</h2><div class="card muted" style="line-height:1.7;padding:12px 14px">買った日（開封した日）からの、家庭での一般的な目安です。パックに書かれた消費期限・賞味期限があればそちらを優先して、食材をタップして日付を直してください。冷凍すると期限の目安が延びます（食材をタップ →「冷凍する」）。</div>
   <h2>データ</h2><div class="card" style="padding:12px 14px">
     <div class="row"><button class="btn sub grow" id="exp">バックアップを書き出す</button><button class="btn sub grow" id="imp">読み込む</button></div>
@@ -520,6 +544,7 @@ function renderMore(){
   bindSyncCard(); bindAICard();
   const setNut=()=>{S.nut={kcal:+$('#nk').value,rice:+$('#nr').value};saveLocal();S.seed=0;toast('保存しました')};
   $('#nk').onchange=setNut; $('#nr').onchange=setNut;
+  const tc=$('#tocal'); if(tc) tc.onclick=()=>{TAB='cal';render();scrollTo(0,0)};
   $('#exp').onclick=()=>{const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`fridge_${today()}.json`;a.click()};
   $('#imp').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=async()=>{try{const j=JSON.parse(await i.files[0].text());if(!Array.isArray(j.items))throw 0;S=Object.assign({items:[],hist:[],seed:0,my:[]},j);save();refreshRecipes();toast('読み込みました');render()}catch(e){toast('読み込めませんでした')}};i.click()};
   $('#clr').onclick=()=>{if(confirm('登録した食材をすべて削除しますか？')){S.items=[];save();toast('空にしました');render()}};
@@ -712,13 +737,92 @@ function openMade(r,m){
   openSheet('使った食材',`
     <p class="muted">使い切った食材にチェックを入れてください。チェックしたものは冷蔵庫から消えます。まだ残っているものはチェックを外してください。</p>
     ${used.map(x=>`<label class="check"><input type="checkbox" data-id="${x.hit.id}" ${x.seas?'':'checked'}><span>${x.hit.emoji} ${esc(x.hit.name)}${x.hit.amt?` <span class="muted">${esc(x.hit.amt)}</span>`:''}</span></label>`).join('')||'<p class="muted">冷蔵庫の食材は使っていません。</p>'}
+    <label class="f">いつ食べた？</label>
+    <div class="row"><input id="mdate" type="date" value="${today()}" style="flex:1"><div class="seg" id="mmeal" style="flex:1.4">${Object.keys(MEALS).map(k=>`<button data-ml="${k}" class="${MEAL===k?'on':''}">${MEALS[k]}</button>`).join('')}</div></div>
     <button class="btn block" id="ok" style="margin-top:16px">記録する</button>`,b=>{
+    let ml=MEAL;
+    b.querySelectorAll('#mmeal button').forEach(x=>x.onclick=()=>{ml=x.dataset.ml;b.querySelectorAll('#mmeal button').forEach(y=>y.classList.toggle('on',y===x))});
     b.querySelector('#ok').onclick=()=>{
       const ids=[...b.querySelectorAll('input:checked')].map(i=>i.dataset.id);
       S.items=S.items.filter(it=>!ids.includes(it.id));
-      S.hist.push({id:uid(),rid:r.id,date:today(),t:Date.now()}); if(S.hist.length>200) S.hist=S.hist.slice(-200);
+      addHist({rid:r.id,date:b.querySelector('#mdate').value||today(),meal:ml});
       S.seed=0; save(); closeSheet(); toast(`${r.name} を記録しました`); render();
     };
+  });
+}
+
+
+// ---------- カレンダー（作った料理の記録を朝・昼・晩で振り返る） ----------
+const histRecipe=h=>h.rid?ALL.find(x=>x.id===h.rid):null;
+const histLabel=h=>{const r=histRecipe(h);return r?r.name:(h.name||'（削除したレシピ）')};
+const histEmoji=h=>{const r=histRecipe(h);return r?r.emoji:(h.name?'🍴':'❔')};
+function addHist(o){
+  S.hist.push({id:uid(),t:Date.now(),...o});
+  S.hist.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.t||0)-(b.t||0));
+  if(S.hist.length>1500) S.hist=S.hist.slice(-1500);
+}
+let CAL=null;
+function renderCal(){
+  const el=$('#tab-cal'); const t=parseD(today());
+  if(!CAL) CAL={y:t.getFullYear(),m:t.getMonth()};
+  const {y,m}=CAL, first=new Date(y,m,1), nd=new Date(y,m+1,0).getDate(), key=d=>`${y}-${pad(m+1)}-${pad(d)}`;
+  const byDay={}; for(const h of S.hist){(byDay[h.date]=byDay[h.date]||[]).push(h)}
+  let cells=[...WD].map((w,i)=>`<div class="wd" style="${i===0?'color:#d33':i===6?'color:#36c':''}">${w}</div>`).join('');
+  for(let i=0;i<first.getDay();i++) cells+='<div class="d o"></div>';
+  for(let d=1;d<=nd;d++){
+    const k=key(d), L=byDay[k]||[], dw=new Date(y,m,d).getDay();
+    const slot=ml=>{const x=L.filter(h=>histMeal(h)===ml);return x.length?`<i title="${MEALS[ml]}">${histEmoji(x[0])}</i>`:`<i class="e">・</i>`};
+    cells+=`<div class="d ${k===today()?'t':''} ${dw===0?'sun':dw===6?'sat':''}" data-day="${k}"><span class="n">${d}</span>${L.length?`<div class="m">${slot('b')}</div><div class="m">${slot('l')}</div><div class="m">${slot('d')}</div>`:''}</div>`;
+  }
+  // 月のまとめ
+  const mon=S.hist.filter(h=>h.date.startsWith(`${y}-${pad(m+1)}-`));
+  const days=new Set(mon.map(h=>h.date)).size, cnt={};
+  for(const h of mon){const l=histLabel(h);cnt[l]=(cnt[l]||0)+1}
+  const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const perMeal=Object.keys(MEALS).map(ml=>`${MEALS[ml]} ${mon.filter(h=>histMeal(h)===ml).length}`).join('・');
+  el.innerHTML=`<div class="calh"><button class="chip" id="cprev">‹ 前の月</button><h2>${y}年${m+1}月</h2><button class="chip" id="cnext">次の月 ›</button></div>
+    <div class="cal">${cells}</div>
+    <p class="muted" style="margin:6px 2px">日付をタップすると、その日の朝・昼・晩を見たり追加したりできます。各日の絵文字は上から朝・昼・晩です。</p>
+    <h2>${m+1}月のまとめ</h2><div class="card" style="padding:12px 14px">
+      ${mon.length?`<div>記録 <b>${mon.length}品</b>（${perMeal}）・記録した日 <b>${days}日</b></div>
+      <div class="muted" style="margin-top:8px">よく作った料理</div>${top.map(([n,c])=>`<div class="hist"><span class="grow">${esc(n)}</span><span class="muted">${c}回</span></div>`).join('')}`
+      :'<div class="muted">この月の記録はまだありません。レシピの「作った！」か、日付をタップして追加できます。</div>'}
+    </div>`;
+  $('#cprev').onclick=()=>{CAL.m--;if(CAL.m<0){CAL.m=11;CAL.y--}renderCal()};
+  $('#cnext').onclick=()=>{CAL.m++;if(CAL.m>11){CAL.m=0;CAL.y++}renderCal()};
+  el.querySelectorAll('[data-day]').forEach(e=>e.onclick=()=>openDay(e.dataset.day));
+}
+function openDay(date){
+  const L=S.hist.filter(h=>h.date===date);
+  const tot=zeroNut(); let any=false;
+  for(const h of L){const r=histRecipe(h); if(r){const n=nutOf(r);for(const k in tot)tot[k]+=n[k];any=true}}
+  openSheet(fmtD(date)+'のごはん',`
+    ${Object.keys(MEALS).map(ml=>{const x=L.filter(h=>histMeal(h)===ml);
+      return `<div class="meal-h">${MEAL_EM[ml]} ${MEAL_NAME[ml]}<span class="grow"></span><button class="chip" data-add="${ml}">＋ 追加</button></div>
+      ${x.map(h=>{const r=histRecipe(h);return `<div class="rec"><span>${histEmoji(h)}</span><span class="grow" ${r?`data-open="${r.id}" style="text-decoration:underline"`:''}>${esc(histLabel(h))}</span>${r?`<span class="muted">${Math.round(nutOf(r).kcal)}kcal</span>`:''}<button class="x2" data-del="${h.id}">削除</button></div>`}).join('')||'<div class="muted" style="padding:4px 0">記録なし</div>'}`}).join('')}
+    ${any?`<h2>この日の合計（レシピ分・1人分の概算）</h2><div class="muted">${Math.round(tot.kcal)}kcal・たんぱく質${Math.round(tot.p)}g・野菜${Math.round(tot.veg)}g・塩分${Math.round(tot.salt*10)/10}g<br>※ご飯やレシピ以外の記録は含みません</div>`:''}
+  `,b=>{
+    b.querySelectorAll('[data-add]').forEach(x=>x.onclick=()=>openAddRecord(date,x.dataset.add));
+    b.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{if(!confirm('この記録を削除しますか？'))return;S.hist=S.hist.filter(h=>h.id!==x.dataset.del);save();render();openDay(date)});
+    b.querySelectorAll('[data-open]').forEach(x=>x.onclick=()=>openRecipe(x.dataset.open));
+  });
+}
+function openAddRecord(date,ml){
+  openSheet(`${fmtD(date)}の${MEAL_NAME[ml]}を追加`,`
+    <input id="arq" type="search" placeholder="料理名で探す（なければそのまま名前で記録）">
+    <button class="btn sub block" id="arfree" style="margin-top:8px" hidden></button>
+    <div class="rlist" id="arlist" style="margin-top:8px"></div>`,b=>{
+    const q=b.querySelector('#arq'),list=b.querySelector('#arlist'),fr=b.querySelector('#arfree');
+    const done=o=>{addHist({date,meal:ml,...o});save();render();openDay(date);toast('記録しました')};
+    const draw=()=>{
+      const v=norm(q.value);
+      const recent=[...new Set([...S.hist].reverse().map(h=>h.rid).filter(Boolean))].map(id=>ALL.find(r=>r.id===id)).filter(Boolean);
+      const L=v?ALL.filter(r=>r.name.includes(v)||bigramSim(v,r.name)>.4).slice(0,30):[...recent,...ALL.filter(r=>!recent.includes(r))].slice(0,30);
+      fr.hidden=!v; fr.textContent=`「${v}」として記録（レシピなし・外食など）`;
+      list.innerHTML=(v?'':'<div class="muted" style="margin:2px">最近作ったもの・レシピから選ぶ</div>')+L.map(r=>`<div class="dish" data-pick="${r.id}"><div class="em">${r.emoji}</div><div class="grow"><div class="kind">${TYPE_LABEL[r.type]}・${Math.round(nutOf(r).kcal)}kcal</div><div class="nm">${esc(r.name)}</div></div><div class="go">＋</div></div>`).join('');
+      list.querySelectorAll('[data-pick]').forEach(e=>e.onclick=()=>done({rid:e.dataset.pick}));
+    };
+    q.oninput=draw; fr.onclick=()=>{const v=norm(q.value);if(v)done({rid:null,name:v.slice(0,40)})}; draw();
   });
 }
 
