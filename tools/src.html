@@ -544,11 +544,11 @@ $('#scrim').onclick=closeSheet; $('#shX').onclick=closeSheet;
 })();
 
 // 食材追加
-const QUICK={野菜:['キャベツ','玉ねぎ','にんじん','じゃがいも','大根','白菜','ほうれん草','小松菜','もやし','長ねぎ','青ねぎ','トマト','きゅうり','なす','ピーマン','ブロッコリー','レタス','にら','ごぼう','かぼちゃ'],
-  きのこ:['しめじ','えのき','しいたけ','まいたけ'],
-  '肉・魚':['鶏もも肉','鶏むね肉','豚こま','豚バラ','豚ロース','牛こま','合いびき肉','豚ひき肉','鶏ひき肉','鮭','さば','ぶり','たら','えび'],
+const QUICK={野菜:['キャベツ','玉ねぎ','にんじん','じゃがいも','大根','白菜','ほうれん草','小松菜','もやし','長ねぎ','青ねぎ','トマト','きゅうり','なす','ピーマン','ブロッコリー','レタス','にら','ごぼう','かぼちゃ','オクラ','ズッキーニ','水菜','チンゲン菜','春菊','アスパラガス','いんげん','かぶ','長芋','里芋','セロリ','大葉','とうもろこし','枝豆'],
+  きのこ:['しめじ','えのき','しいたけ','まいたけ','エリンギ','なめこ','マッシュルーム'],
+  '肉・魚':['鶏もも肉','鶏むね肉','豚こま','豚バラ','豚ロース','牛こま','合いびき肉','豚ひき肉','鶏ひき肉','鶏手羽元','鶏手羽先','豚ヒレ','鶏レバー','鮭','さば','ぶり','たら','あじ','さんま','えび','いか','ほたて','あさり','まぐろ','明太子'],
   '卵・乳・豆腐':['卵','牛乳','チーズ','バター','豆腐','油揚げ','厚揚げ','納豆'],
-  'その他':['ベーコン','ハム','ソーセージ','ちくわ','キムチ','うどん','中華麺','こんにゃく','しょうが'],
+  'その他':['ベーコン','ハム','ソーセージ','ちくわ','キムチ','うどん','中華麺','食パン','もち','冷凍餃子','かにかま','はんぺん','さつま揚げ','トマト缶','豆乳','こんにゃく','しょうが'],
   '調味料（開封した日から）':['マヨネーズ','ケチャップ','みりん','醤油','味噌','めんつゆ','ポン酢','ソース','ドレッシング','焼肉のたれ','オイスターソース','豆板醤','チューブにんにく','チューブ生姜','わさび','からし','料理酒','酢','ごま油','ジャム']};
 function openAdd(prefill){
   let storage=null, key=null, expTouched=false;
@@ -563,6 +563,7 @@ function openAdd(prefill){
       <div class="seg" id="stg"><button data-s="冷蔵">冷蔵</button><button data-s="冷凍">冷凍</button><button data-s="常温">常温</button></div>
       <div class="row"><div class="grow"><label class="f">買った日／開封日</label><input type="date" id="bought"></div>
       <div class="grow"><label class="f">期限（目安）</label><input type="date" id="exp"></div></div>
+      <div id="ocrbox"></div>
       <label class="f">量・メモ（任意）</label><input id="amt" placeholder="例：300g、半分">
       <div class="estim" id="est">食材名を入れると期限の目安を自動で入れます。</div>
       <button class="btn block" id="add" style="margin-top:14px">追加する</button>
@@ -598,6 +599,7 @@ function openAdd(prefill){
     nm.oninput=()=>{storage=null;expTouched=false;recalc()};
     cat.onchange=recalc; bought.onchange=recalc;
     exp.onchange=()=>{expTouched=true;recalc()};
+    photoExpiryUI(b.querySelector('#ocrbox'),d=>{exp.value=d;expTouched=true;recalc()});
     b.querySelectorAll('#stg button').forEach(x=>x.onclick=()=>{setStg(x.dataset.s);expTouched=false;recalc()});
     const doAdd=()=>{
       const name=norm(nm.value); if(!name){nm.focus();return}
@@ -649,6 +651,7 @@ function openItem(id){
     <div class="row">${badge(it)}<span class="muted">${it.storage}・${fmtD(it.bought)}に購入 → ${fmtD(it.exp)}まで${it.auto?'（目安）':''}</span></div>
     <label class="f">期限を直す（パックの日付があればそれに）</label>
     <div class="row"><input type="date" id="ex" value="${it.exp}" class="grow"><button class="btn sub" id="exs">保存</button></div>
+    <div id="ocrbox"></div>
     <label class="f">量・メモ</label>
     <div class="row"><input id="am" value="${esc(it.amt)}" class="grow"><button class="btn sub" id="ams">保存</button></div>
     <div class="row" style="margin-top:14px">
@@ -660,6 +663,7 @@ function openItem(id){
     <h2>${esc(it.name)}のレシピをネットで探す</h2>${extLinks(it.key||it.name,(it.key||it.name)+'レシピ')}
     ${recs.length?`<h2>${esc(it.name)}を使う料理</h2><div class="rlist">${recs.map(x=>dishHTML(x.r,x.m)).join('')}</div>`:''}
   `,b=>{
+    photoExpiryUI(b.querySelector('#ocrbox'),d=>{b.querySelector('#ex').value=d});
     b.querySelector('#exs').onclick=()=>{it.exp=b.querySelector('#ex').value||it.exp;it.auto=false;save();toast('期限を更新しました');closeSheet();render()};
     b.querySelector('#ams').onclick=()=>{it.amt=norm(b.querySelector('#am').value);save();toast('保存しました');closeSheet();render()};
     b.querySelector('#used').onclick=()=>{S.items=S.items.filter(x=>x.id!==id);save();toast(`${it.name} を使い切りました`);closeSheet();render()};
@@ -888,6 +892,80 @@ async function checkShareHash(){
 }
 window.addEventListener('hashchange',checkShareHash);
 
+// ---------- 写真から賞味期限・消費期限を読み取る（端末内の文字認識 Tesseract.js） ----------
+const TESS_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js';
+let tessWorker=null;
+function loadScript(src){return new Promise((ok,ng)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>ng(new Error('読み込み失敗'));document.head.appendChild(s)})}
+async function getTess(onProg){
+  if(tessWorker) return tessWorker;
+  if(!window.Tesseract) await loadScript(TESS_URL);
+  tessWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(onProg&&m.status)onProg(m)}});
+  await tessWorker.setParameters({tessedit_char_whitelist:'0123456789./-: '});
+  return tessWorker;
+}
+// 画像を縮小・白黒にして文字を読みやすくする
+function prepImage(file,invert){
+  return new Promise((ok,ng)=>{const img=new Image();img.onload=()=>{
+    const k=Math.min(1,1800/Math.max(img.width,img.height)), w=Math.round(img.width*k), h=Math.round(img.height*k);
+    const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(img,0,0,w,h);
+    const d=g.getImageData(0,0,w,h),p=d.data;let mn=255,mx=0;
+    for(let i=0;i<p.length;i+=4){const v=.3*p[i]+.59*p[i+1]+.11*p[i+2];p[i]=v;if(v<mn)mn=v;if(v>mx)mx=v}
+    const sc=255/Math.max(1,mx-mn);
+    for(let i=0;i<p.length;i+=4){let v=(p[i]-mn)*sc;if(invert)v=255-v;p[i]=p[i+1]=p[i+2]=v}
+    g.putImageData(d,0,0);URL.revokeObjectURL(img.src);ok(c)};img.onerror=ng;img.src=URL.createObjectURL(file)});
+}
+// 読み取った文字から日付の候補を探す（2026.11.03 / 26.11.03 / 2026年11月3日 / 11.03 など）
+function findDates(text){
+  const t=norm(text).replace(/[oO]/g,'0').replace(/[lI|]/g,'1');
+  const now=parseD(today()), out=new Map();
+  const add=(y,m,d,full)=>{
+    if(m<1||m>12||d<1||d>31) return;
+    if(y<100) y+=2000;
+    const dt=new Date(y,m-1,d); if(dt.getMonth()!==m-1) return;
+    const diff=(dt-now)/864e5; if(diff<-60||diff>365*3) return;
+    const s=`${y}-${pad(m)}-${pad(d)}`; if(!out.has(s)||full) out.set(s,{date:s,full});
+  };
+  let m;
+  const R1=/(20\d{2})\s*[.\/\-年]\s*(\d{1,2})\s*[.\/\-月]\s*(\d{1,2})/g;
+  while((m=R1.exec(t))) add(+m[1],+m[2],+m[3],true);
+  const R1b=/(20\d{2})\s(\d{1,2})\s(\d{1,2})(?!\d)/g; while((m=R1b.exec(t))) add(+m[1],+m[2],+m[3],true);
+  const R1c=/(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)/g; while((m=R1c.exec(t))) add(+m[1],+m[2],+m[3],true);
+  const R2=/(?<!\d)(\d{2})\s*[.\/\-]\s*(\d{1,2})\s*[.\/\-]\s*(\d{1,2})(?!\d)/g; while((m=R2.exec(t))) add(+m[1],+m[2],+m[3],true);
+  if(!out.size){const R3=/(?<!\d)(\d{1,2})\s*[.\/\-月]\s*(\d{1,2})(?!\d)/g;
+    while((m=R3.exec(t))){let y=now.getFullYear();const dt=new Date(y,+m[1]-1,+m[2]);if((dt-now)/864e5<-60)y++;add(y,+m[1],+m[2],false)}}
+  return [...out.values()].sort((a,b)=>(b.full-a.full)||a.date.localeCompare(b.date));
+}
+async function readExpiryFromPhoto(file,onStatus){
+  onStatus('文字認識の準備中…（初回は数秒かかります）');
+  const w=await getTess(m=>{if(m.status==='recognizing text')onStatus(`読み取り中… ${Math.round(m.progress*100)}%`)});
+  let all='';
+  for(const inv of [false,true]){
+    const c=await prepImage(file,inv); const r=await w.recognize(c); all+='\n'+r.data.text;
+    if(findDates(all).length) break;
+  }
+  return {dates:findDates(all),text:all.trim()};
+}
+// 写真ボタン → 候補を出して、選んだ日付を onPick に渡す
+function photoExpiryUI(box,onPick){
+  box.innerHTML=`<label class="btn sub block" style="display:block;text-align:center;margin-top:8px">📷 写真から期限を読み取る<input type="file" accept="image/*" capture="environment" hidden></label><div class="ocr muted"></div>`;
+  const inp=box.querySelector('input'), st=box.querySelector('.ocr');
+  inp.onchange=async()=>{const f=inp.files[0]; if(!f) return; inp.value='';
+    const url=URL.createObjectURL(f);
+    st.innerHTML=`<img src="${url}" style="max-width:100%;max-height:160px;border-radius:8px;margin-top:8px;display:block"><div class="ocrs">準備中…</div>`;
+    const ss=t=>{const e=st.querySelector('.ocrs');if(e)e.textContent=t};
+    try{
+      const r=await (window.__OCR?window.__OCR(f):readExpiryFromPhoto(f,ss));
+      if(!r.dates.length){ss('日付が見つかりませんでした。日付の部分を大きく、明るく写して撮り直すか、手で入力してください。');return}
+      ss('読み取った日付（タップで入力）：');
+      const row=document.createElement('div');row.className='sugg';
+      row.innerHTML=r.dates.slice(0,4).map(d=>`<button type="button" data-d="${d.date}">${fmtD(d.date)}${d.full?'':'（年は推定）'}</button>`).join('');
+      st.appendChild(row);
+      row.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{onPick(b.dataset.d);toast(`期限を ${fmtD(b.dataset.d)} にしました`)});
+      if(r.dates.length===1) onPick(r.dates[0].date);
+    }catch(e){ss('文字認識を読み込めませんでした（通信環境を確認してください）')}
+  };
+}
+
 // ---------- 家族で同期（Firebase Firestore） ----------
 // homes/{家族コード}/items|recipes|hist/{id} に1件ずつ保存し、全員の端末でリアルタイムに同じにする
 const FB_CONFIG={apiKey:"AIzaSyDegPdxMuktMR1DfipeM5EncLPoK9_8Sz0",authDomain:"fridge-app-cc09f.firebaseapp.com",projectId:"fridge-app-cc09f",storageBucket:"fridge-app-cc09f.firebasestorage.app",messagingSenderId:"819072255455",appId:"1:819072255455:web:8cf28e30f449a0e426b06a"}; // 公開用の設定値（守りはFirestoreのルールで行う）
@@ -1065,6 +1143,6 @@ checkInvite(); render(); checkShareHash(); if(SY.code) syncStart();
 // 日付が変わったら描き直す
 let lastDay=today(); setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&today()!==lastDay){lastDay=today();render()}});
-window.__F={nutOf:r=>nutOf(r),S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare,SY,syncStart,syncPush};
+window.__F={findDates,nutOf:r=>nutOf(r),S:()=>S,buildMenu,findIng,parseBulk,setNow:d=>{NOW=d;render()},render,RECIPES,ING,parseRecipeText,ALL:()=>ALL,shareURL,readShare,SY,syncStart,syncPush};
 </script>
 </body></html>
