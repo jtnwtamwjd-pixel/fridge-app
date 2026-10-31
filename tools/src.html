@@ -90,6 +90,7 @@ label.f{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:9px 0;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sugg a.chip{text-decoration:none;color:var(--ink)}
 .sugg button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13px}
 .estim{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:14px;line-height:1.55}
 .quick details{border-top:1px solid var(--line);margin-top:6px}
@@ -252,6 +253,13 @@ function scoreRecipe(r,m,usedSoFar,noise){
   for(const it of m.seas){ if(!it) continue; let u=urgency(it); if(usedSoFar.has(it.id)) u*=.15; s+=u*.5 }
   return s - m.missing*3 - recentPenalty(r) + noise;
 }
+const isQuick=r=>!!r.how||r.time<=15;
+// 外部サイトの検索（データは取り込まず、検索結果を開くだけ）
+function extLinks(q,tag){const e=encodeURIComponent;
+  return `<div class="sugg" style="margin-top:6px">
+    <a class="chip" target="_blank" rel="noopener" href="https://www.kurashiru.com/search?query=${e(q)}">クラシルで探す ↗</a>
+    <a class="chip" target="_blank" rel="noopener" href="https://www.instagram.com/explore/tags/${e((tag||q).replace(/[\s・]/g,''))}/">インスタで探す ↗</a>
+    <a class="chip" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${e(q+' レシピ')}">YouTubeで探す ↗</a></div>`}
 const TYPE_LABEL={main:'主菜',side:'副菜',soup:'汁物',one:'丼・麺・ご飯'};
 function buildMenu(seed){
   const byKey=itemsByKey(); const rand=rng(seed+1);
@@ -260,7 +268,7 @@ function buildMenu(seed){
   const usedSoFar=new Set(); const picks=[];
   const pick=(types,needUse)=>{
     let best=null,bs=-1e9;
-    for(const r of ALL){ if(!types.includes(r.type)) continue; const m=M[r.id]; if(m.missing) continue;
+    for(const r of ALL){ if(!types.includes(r.type)) continue; if(S.quick&&!isQuick(r)) continue; const m=M[r.id]; if(m.missing) continue;
       if(needUse&&!m.rows.some(x=>x.hit&&!x.opt)) continue;
       if(picks.some(p=>p.r.id===r.id)) continue;
       const s=scoreRecipe(r,m,usedSoFar,noise[r.id]); if(s>bs){bs=s;best=r} }
@@ -335,14 +343,14 @@ function whyTags(m){
 }
 function dishHTML(r,m,kind){
   return `<div class="dish" data-r="${r.id}"><div class="em">${r.emoji}</div><div class="grow">
-    <div class="kind">${kind||((r.mine?'マイレシピ・':'')+TYPE_LABEL[r.type])}・${r.time}分</div><div class="nm">${esc(r.name)}</div>
+    <div class="kind">${kind||((r.mine?'マイレシピ・':'')+TYPE_LABEL[r.type])}${r.how?'・'+r.how:''}・${r.time}分</div><div class="nm">${esc(r.name)}</div>
     <div class="why">${whyTags(m)}</div></div><div class="go">›</div></div>`;
 }
 function renderMenu(){
   const el=$('#tab-menu');
   if(!S.items.length){el.innerHTML=`<div class="empty"><div class="big">🍽️</div><p>食材を登録すると、期限が近いものから使い切れる献立を提案します。</p><button class="btn sub" id="demo">お試し用の食材を入れてみる</button></div>`;$('#demo').onclick=loadDemo;return}
   const {picks,ranked,usedSoFar}=buildMenu(S.seed);
-  let h=`<h2>${fmtD(today())}のおすすめ献立</h2>`;
+  let h=`<div class="row" style="margin:6px 0 8px"><h2 class="grow" style="margin:0">${fmtD(today())}のおすすめ献立</h2><button class="chip ${S.quick?'on':''}" id="qmode">⚡ 時短だけ</button></div>`;
   if(picks.length){
     h+=`<div class="card">${picks.map(p=>dishHTML(p.r,p.m)).join('')}`;
     const urgentAll=S.items.filter(it=>it.key&&daysLeft(it)<=2&&daysLeft(it)>=-2&&it.storage!=='冷凍');
@@ -359,6 +367,7 @@ function renderMenu(){
   h+=`<p class="muted" style="margin-top:16px">※ 調味料・お米・パスタ・乾物は家にある前提で提案しています。期限は購入日からのざっくりした目安です。</p>`;
   el.innerHTML=h;
   el.querySelectorAll('[data-r]').forEach(e=>e.onclick=()=>openRecipe(e.dataset.r));
+  $('#qmode').onclick=()=>{S.quick=!S.quick;S.seed=0;saveLocal();render()};
   const rr=$('#reroll'); if(rr) rr.onclick=()=>{S.seed++;save();render()};
   const rs=$('#reset'); if(rs) rs.onclick=()=>{S.seed=0;save();render()};
 }
@@ -366,16 +375,17 @@ let RQ='',RT='all';
 function renderRecipes(){
   const el=$('#tab-recipes');
   const byKey=itemsByKey();
-  const types=['all','can','mine','main','side','soup','one'];
-  const lab={all:'すべて',can:'今作れる',mine:'マイレシピ',...TYPE_LABEL};
+  const types=['all','can','quick','mine','main','side','soup','one'];
+  const lab={all:'すべて',can:'今作れる',quick:'⚡ 時短',mine:'マイレシピ',...TYPE_LABEL};
   let list=ALL.map(r=>({r,m:matchRecipe(r,byKey)}));
   const q=norm(RQ);
   if(q){const key=findIng(q); list=list.filter(x=>x.r.name.includes(q)||(key&&x.r.ing.some(i=>i[0].split('|').includes(key))))}
-  if(RT==='can') list=list.filter(x=>!x.m.missing); else if(RT==='mine') list=list.filter(x=>x.r.mine); else if(RT!=='all') list=list.filter(x=>x.r.type===RT);
+  if(RT==='can') list=list.filter(x=>!x.m.missing); else if(RT==='mine') list=list.filter(x=>x.r.mine); else if(RT==='quick') list=list.filter(x=>isQuick(x.r)); else if(RT!=='all') list=list.filter(x=>x.r.type===RT);
   list.sort((a,b)=>a.m.missing-b.m.missing);
-  el.innerHTML=`<button class="btn block" id="addr" style="margin-bottom:10px">＋ レシピを追加（手入力・SNS投稿の貼り付け）</button>
+  el.innerHTML=`<button class="btn block" id="addr" style="margin-bottom:10px">＋ レシピを追加（自作・SNSから）</button>
     <input id="rq" type="search" placeholder="料理名・食材で検索（例：豚こま）" value="${esc(RQ)}">
     <div class="filters" style="margin-top:8px">${types.map(t=>`<button class="chip ${RT===t?'on':''}" data-t="${t}">${lab[t]}</button>`).join('')}</div>
+    ${q?`<div class="muted" style="margin:2px 2px 0">「${esc(q)}」をネットで探す</div>${extLinks(q)}`:''}
     <div class="row" style="margin:4px 2px 8px"><span class="muted grow">${list.length}品</span>${RT==='mine'&&(S.my||[]).length?'<button class="chip" id="shareall">まとめて共有</button>':''}</div>
     <div class="rlist">${list.map(x=>dishHTML(x.r,x.m,(x.r.mine?'マイレシピ・':'')+(x.m.missing?`足りない${x.m.missing}品`:'今作れる')+'・'+TYPE_LABEL[x.r.type])).join('')||`<div class="empty">${RT==='mine'?'まだマイレシピはありません。<br>上のボタンから、自作のレシピやSNSで見たレシピを追加できます。':'見つかりませんでした'}</div>`}</div>`;
   $('#addr').onclick=()=>openRecipeEditor();
@@ -535,6 +545,7 @@ function openItem(id){
     </div>
     ${it.storage!=='冷凍'&&fz==null?'<p class="muted">※ この食材は冷凍にあまり向きません。</p>':''}
     <button class="btn ghost block" id="del" style="margin-top:8px">削除（捨てた・間違えた）</button>
+    <h2>${esc(it.name)}のレシピをネットで探す</h2>${extLinks(it.key||it.name,(it.key||it.name)+'レシピ')}
     ${recs.length?`<h2>${esc(it.name)}を使う料理</h2><div class="rlist">${recs.map(x=>dishHTML(x.r,x.m)).join('')}</div>`:''}
   `,b=>{
     b.querySelector('#exs').onclick=()=>{it.exp=b.querySelector('#ex').value||it.exp;it.auto=false;save();toast('期限を更新しました');closeSheet();render()};
@@ -567,6 +578,7 @@ function openRecipe(rid){
     <h2>作り方 <span class="muted" style="font-weight:500">（タップで済みにできます）</span></h2>
     <ol class="steps">${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
     <button class="btn block" id="made" style="margin-top:16px">🍳 作った！（使った食材を冷蔵庫から減らす）</button>
+    <h2>似たレシピをネットで探す</h2>${extLinks(r.name.replace(/[（(].*?[)）]/g,''))}
     ${r.mine?`<div class="row" style="margin-top:8px"><button class="btn sub grow" id="rshare">共有</button><button class="btn sub grow" id="redit">編集</button><button class="btn warn grow" id="rdel">削除</button></div>`:''}
   `,b=>{
     if(r.mine){b.querySelector('#redit').onclick=()=>openRecipeEditor(r); b.querySelector('#rshare').onclick=()=>shareRecipes([r]);
