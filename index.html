@@ -93,6 +93,7 @@ label.f{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px}
 .cal .d .n{font-size:12px;color:var(--ink)}.cal .d.sun .n{color:#d33}.cal .d.sat .n{color:#36c}
 .cal .d .m{display:flex;gap:1px;font-size:13px;line-height:1.1;min-height:15px}
 .cal .d .m i{font-style:normal;width:15px;text-align:center}.cal .d .m i.e{opacity:.25;font-size:8px;line-height:15px}
+.cal .d .kc{font-size:9px;color:var(--muted);line-height:1.1;margin-top:auto}
 .calh{display:flex;align-items:center;gap:8px;margin:6px 0 8px}.calh h2{margin:0;flex:1;text-align:center}
 .meal-h{font-weight:700;margin:14px 0 4px;display:flex;align-items:center;gap:8px}
 .rec{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
@@ -1278,8 +1279,8 @@ function nutComments(n){
   if(n.veg<T.veg*.7) c.push('野菜が少なめ');
   return c.length?c.join('・'):'バランスのよい献立です';
 }
-function nutGridHTML(n,withTarget){
-  const T=nutTarget(), r1=v=>Math.round(v), r10=v=>Math.round(v*10)/10;
+function nutGridHTML(n,withTarget,TT){
+  const T=TT||nutTarget(), r1=v=>Math.round(v), r10=v=>Math.round(v*10)/10;
   const cells=[['エネルギー',r1(n.kcal)+'kcal',n.kcal/T.kcal],['たんぱく質',r10(n.p)+'g',n.p/T.p],['脂質',r10(n.f)+'g',n.f/T.fHi],
     ['炭水化物',r10(n.c)+'g',n.c/T.c],['食物繊維',r10(n.fib)+'g',n.fib/T.fib],['塩分',r10(n.salt)+'g',n.salt/T.salt],['野菜',r1(n.veg)+'g',n.veg/T.veg]];
   const tg={エネルギー:r1(T.kcal)+'kcal',たんぱく質:r1(T.p)+'g〜',脂質:`${r1(T.fLo)}〜${r1(T.fHi)}g`,炭水化物:r1(T.c)+'g',食物繊維:T.fib+'g〜',塩分:T.salt+'g以下',野菜:T.veg+'g〜'};
@@ -1656,6 +1657,18 @@ function openMade(r,m){
 const histRecipe=h=>h.rid?ALL.find(x=>x.id===h.rid):null;
 const histLabel=h=>{const r=histRecipe(h);return r?r.name:(h.name||'（削除したレシピ）')};
 const histEmoji=h=>{const r=histRecipe(h);return r?r.emoji:(h.name?'🍴':'❔')};
+// 記録の栄養（1人分）。レシピの記録は材料から計算、名前だけの記録は入力したkcalのみ。ご飯は丼・麺がない食事に足す
+function recsNut(L){
+  const t=zeroNut(); let rec=0, hasOne=false, manual=0;
+  for(const h of L){const r=histRecipe(h); if(r){const n=nutOf(r);for(const k in t)t[k]+=n[k];rec++;if(r.type==='one')hasOne=true} else if(h.kcal){t.kcal+=+h.kcal;manual++}}
+  if(rec&&!hasOne&&riceG()>0) addNut(t,seasNut('ご飯'),riceG());
+  return {t,rec,manual,unknown:L.length-rec-manual};
+}
+function dayNut(L){const t=zeroNut();let rec=0,unknown=0;for(const ml of Object.keys(MEALS)){const x=recsNut(L.filter(h=>histMeal(h)===ml));for(const k in t)t[k]+=x.t[k];rec+=x.rec;unknown+=x.unknown}return {t,rec,unknown}}
+function dayTarget(){
+  const T=(S.nut&&S.nut.kcal)||2000;
+  return {kcal:T,p:T*.16/4,fLo:T*.2/9,fHi:T*.3/9,c:T*.57/4,salt:T<1900?6.5:7.5,veg:350,fib:Math.round(T/2000*21)};
+}
 function addHist(o){
   S.hist.push({id:uid(),t:Date.now(),...o});
   S.hist.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.t||0)-(b.t||0));
@@ -1672,7 +1685,8 @@ function renderCal(){
   for(let d=1;d<=nd;d++){
     const k=key(d), L=byDay[k]||[], dw=new Date(y,m,d).getDay();
     const slot=ml=>{const x=L.filter(h=>histMeal(h)===ml);return x.length?`<i title="${MEALS[ml]}">${histEmoji(x[0])}</i>`:`<i class="e">・</i>`};
-    cells+=`<div class="d ${k===today()?'t':''} ${dw===0?'sun':dw===6?'sat':''}" data-day="${k}"><span class="n">${d}</span>${L.length?`<div class="m">${slot('b')}</div><div class="m">${slot('l')}</div><div class="m">${slot('d')}</div>`:''}</div>`;
+    const dk=L.length?Math.round(dayNut(L).t.kcal):0;
+    cells+=`<div class="d ${k===today()?'t':''} ${dw===0?'sun':dw===6?'sat':''}" data-day="${k}"><span class="n">${d}</span>${L.length?`<div class="m">${slot('b')}</div><div class="m">${slot('l')}</div><div class="m">${slot('d')}</div>${dk?`<span class="kc">${dk}</span>`:''}`:''}</div>`;
   }
   // 月のまとめ
   const mon=S.hist.filter(h=>h.date.startsWith(`${y}-${pad(m+1)}-`));
@@ -1684,7 +1698,7 @@ function renderCal(){
     <div class="cal">${cells}</div>
     <p class="muted" style="margin:6px 2px">日付をタップすると、その日の朝・昼・晩を見たり追加したりできます。各日の絵文字は上から朝・昼・晩です。</p>
     <h2>${m+1}月のまとめ</h2><div class="card" style="padding:12px 14px">
-      ${mon.length?`<div>記録 <b>${mon.length}品</b>（${perMeal}）・記録した日 <b>${days}日</b></div>
+      ${mon.length?`<div>記録 <b>${mon.length}品</b>（${perMeal}）・記録した日 <b>${days}日</b></div>${monAvgHTML(mon)}
       <div class="muted" style="margin-top:8px">よく作った料理</div>${top.map(([n,c])=>`<div class="hist"><span class="grow">${esc(n)}</span><span class="muted">${c}回</span></div>`).join('')}`
       :'<div class="muted">この月の記録はまだありません。レシピの「作った！」か、日付をタップして追加できます。</div>'}
     </div>`;
@@ -1692,25 +1706,40 @@ function renderCal(){
   $('#cnext').onclick=()=>{CAL.m++;if(CAL.m>11){CAL.m=0;CAL.y++}renderCal()};
   el.querySelectorAll('[data-day]').forEach(e=>e.onclick=()=>openDay(e.dataset.day));
 }
+function monAvgHTML(mon){
+  const by={}; for(const h of mon)(by[h.date]=by[h.date]||[]).push(h);
+  const ds=Object.values(by).map(dayNut).filter(x=>x.t.kcal>0); if(!ds.length) return '';
+  const a=zeroNut(); for(const x of ds) for(const k in a) a[k]+=x.t[k]/ds.length;
+  return `<div class="muted" style="margin-top:8px">1日あたりの平均（記録のある${ds.length}日・1人分）</div>${nutGridHTML(a,true,dayTarget())}<div class="muted" style="font-size:11px">※記録した食事だけの合計です。記録していない食事や間食は含みません</div>`;
+}
 function openDay(date){
-  const L=S.hist.filter(h=>h.date===date);
-  const tot=zeroNut(); let any=false;
-  for(const h of L){const r=histRecipe(h); if(r){const n=nutOf(r);for(const k in tot)tot[k]+=n[k];any=true}}
+  const L=S.hist.filter(h=>h.date===date), D=dayNut(L), r1=v=>Math.round(v), r10=v=>Math.round(v*10)/10;
   openSheet(fmtD(date)+'のごはん',`
-    ${Object.keys(MEALS).map(ml=>{const x=L.filter(h=>histMeal(h)===ml);
-      return `<div class="meal-h">${MEAL_EM[ml]} ${MEAL_NAME[ml]}<span class="grow"></span><button class="chip" data-add="${ml}">＋ 追加</button></div>
-      ${x.map(h=>{const r=histRecipe(h);return `<div class="rec"><span>${histEmoji(h)}</span><span class="grow" ${r?`data-open="${r.id}" style="text-decoration:underline"`:''}>${esc(histLabel(h))}</span>${r?`<span class="muted">${Math.round(nutOf(r).kcal)}kcal</span>`:''}<button class="x2" data-del="${h.id}">削除</button></div>`}).join('')||'<div class="muted" style="padding:4px 0">記録なし</div>'}`}).join('')}
-    ${any?`<h2>この日の合計（レシピ分・1人分の概算）</h2><div class="muted">${Math.round(tot.kcal)}kcal・たんぱく質${Math.round(tot.p)}g・野菜${Math.round(tot.veg)}g・塩分${Math.round(tot.salt*10)/10}g<br>※ご飯やレシピ以外の記録は含みません</div>`:''}
+    ${Object.keys(MEALS).map(ml=>{const x=L.filter(h=>histMeal(h)===ml), N=recsNut(x);
+      return `<div class="meal-h">${MEAL_EM[ml]} ${MEAL_NAME[ml]}${N.t.kcal?`<span class="muted" style="font-weight:400;font-size:13px">約${r1(N.t.kcal)}kcal</span>`:''}<span class="grow"></span><button class="chip" data-add="${ml}">＋ 追加</button></div>
+      ${x.map(h=>{const r=histRecipe(h);return `<div class="rec"><span>${histEmoji(h)}</span><span class="grow" ${r?`data-open="${r.id}" style="text-decoration:underline"`:''}>${esc(histLabel(h))}</span>${r?`<span class="muted">${r1(nutOf(r).kcal)}kcal</span>`:h.kcal?`<span class="muted">${r1(h.kcal)}kcal</span>`:''}<button class="x2" data-del="${h.id}">削除</button></div>`}).join('')||'<div class="muted" style="padding:4px 0">記録なし</div>'}
+      ${N.rec?`<div class="muted" style="font-size:12px;padding:4px 0">たんぱく質${r10(N.t.p)}g・脂質${r10(N.t.f)}g・炭水化物${r1(N.t.c)}g・塩分${r10(N.t.salt)}g・野菜${r1(N.t.veg)}g</div>`:''}`}).join('')}
+    ${D.t.kcal?`<h2>この日の栄養（1人分・概算）</h2>${nutGridHTML(D.t,true,dayTarget())}<div style="margin:4px 0">${dayComments(D.t)}</div>
+      <p class="muted" style="font-size:11px;margin:4px 0 0">目安は1日${dayTarget().kcal}kcal（その他タブで変更可）。${riceG()?`丼・麺のない食事にはご飯${riceG()}gを足しています。`:''}${D.unknown?`カロリー未入力の記録${D.unknown}件は含みません。`:''}</p>`:''}
   `,b=>{
     b.querySelectorAll('[data-add]').forEach(x=>x.onclick=()=>openAddRecord(date,x.dataset.add));
     b.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{if(!confirm('この記録を削除しますか？'))return;S.hist=S.hist.filter(h=>h.id!==x.dataset.del);save();render();openDay(date)});
     b.querySelectorAll('[data-open]').forEach(x=>x.onclick=()=>openRecipe(x.dataset.open));
   });
 }
+function dayComments(n){
+  const T=dayTarget(), c=[];
+  if(n.kcal>T.kcal*1.15) c.push('カロリー多め'); else if(n.kcal<T.kcal*.7) c.push('カロリー少なめ（記録していない食事があれば追加してください）');
+  if(n.p<T.p*.8) c.push('たんぱく質が少なめ');
+  if(n.f>T.fHi*1.15) c.push('脂質多め');
+  if(n.salt>T.salt) c.push('塩分多め');
+  if(n.veg<T.veg*.6) c.push('野菜が少なめ');
+  return c.length?c.join('・'):'バランスのよい1日です';
+}
 function openAddRecord(date,ml){
   openSheet(`${fmtD(date)}の${MEAL_NAME[ml]}を追加`,`
     <input id="arq" type="search" placeholder="料理名で探す（なければそのまま名前で記録）">
-    <button class="btn sub block" id="arfree" style="margin-top:8px" hidden></button>
+    <div id="arfreebox" hidden><input id="arkcal" type="number" inputmode="numeric" placeholder="カロリー（任意・例 500）" style="margin-top:8px"><button class="btn sub block" id="arfree" style="margin-top:8px"></button></div>
     <div class="rlist" id="arlist" style="margin-top:8px"></div>`,b=>{
     const q=b.querySelector('#arq'),list=b.querySelector('#arlist'),fr=b.querySelector('#arfree');
     const done=o=>{addHist({date,meal:ml,...o});save();render();openDay(date);toast('記録しました')};
@@ -1718,11 +1747,11 @@ function openAddRecord(date,ml){
       const v=norm(q.value);
       const recent=[...new Set([...S.hist].reverse().map(h=>h.rid).filter(Boolean))].map(id=>ALL.find(r=>r.id===id)).filter(Boolean);
       const L=v?ALL.filter(r=>r.name.includes(v)||bigramSim(v,r.name)>.4).slice(0,30):[...recent,...ALL.filter(r=>!recent.includes(r))].slice(0,30);
-      fr.hidden=!v; fr.textContent=`「${v}」として記録（レシピなし・外食など）`;
+      b.querySelector('#arfreebox').hidden=!v; fr.textContent=`「${v}」として記録（レシピなし・外食など）`;
       list.innerHTML=(v?'':'<div class="muted" style="margin:2px">最近作ったもの・レシピから選ぶ</div>')+L.map(r=>`<div class="dish" data-pick="${r.id}"><div class="em">${recipeArt(r)}</div><div class="grow"><div class="kind">${TYPE_LABEL[r.type]}・${Math.round(nutOf(r).kcal)}kcal</div><div class="nm">${esc(r.name)}</div></div><div class="go">＋</div></div>`).join('');
       list.querySelectorAll('[data-pick]').forEach(e=>e.onclick=()=>done({rid:e.dataset.pick}));
     };
-    q.oninput=draw; fr.onclick=()=>{const v=norm(q.value);if(v)done({rid:null,name:v.slice(0,40)})}; draw();
+    q.oninput=draw; fr.onclick=()=>{const v=norm(q.value),kc=parseInt(b.querySelector('#arkcal').value);if(v)done({rid:null,name:v.slice(0,40),...(kc>0?{kcal:Math.min(kc,5000)}:{})})}; draw();
   });
 }
 
